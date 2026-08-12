@@ -58,6 +58,25 @@ func TestRunReturnsApplicationError(t *testing.T) {
 	}
 }
 
+func TestNewApplicationUsesAlternateScreen(t *testing.T) {
+	var output bytes.Buffer
+	newProgram := func(model tea.Model, options ...tea.ProgramOption) *tea.Program {
+		options = append(options,
+			tea.WithInput(bytes.NewBufferString("q")),
+			tea.WithOutput(&output),
+		)
+		return tea.NewProgram(model, options...)
+	}
+
+	application := newApplicationWithProgram(nil, process.Lookup{}, newProgram)
+	if err := run(application); err != nil {
+		t.Fatalf("run() error = %v, want nil", err)
+	}
+	if !bytes.Contains(output.Bytes(), []byte("\x1b[?1049h")) {
+		t.Errorf("output = %q, want alternate-screen escape sequence", output.String())
+	}
+}
+
 type testFileReader struct {
 	data []byte
 	path string

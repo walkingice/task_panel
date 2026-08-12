@@ -22,6 +22,8 @@ type application interface {
 
 type applicationFactory func([]config.Process, diagnostic.Lookup) application
 
+type programFactory func(tea.Model, ...tea.ProgramOption) *tea.Program
+
 func main() {
 	lookup := process.Lookup{Shell: process.SystemShell{}, Inspector: process.SystemInspector{}}
 	if err := execute(
@@ -55,12 +57,20 @@ func execute(
 }
 
 func newApplication(processes []config.Process, lookup diagnostic.Lookup) application {
+	return newApplicationWithProgram(processes, lookup, tea.NewProgram)
+}
+
+func newApplicationWithProgram(
+	processes []config.Process,
+	lookup diagnostic.Lookup,
+	newProgram programFactory,
+) application {
 	controller := process.Controller{
 		Shell:    process.SystemShell{},
 		Launcher: process.SystemLauncher{},
 		Signaler: process.SystemSignaler{},
 	}
-	return tea.NewProgram(ui.New(processes, lookup, controller))
+	return newProgram(ui.New(processes, lookup, controller), tea.WithAltScreen())
 }
 
 func diagnosticEnabled(arguments []string) (bool, error) {
