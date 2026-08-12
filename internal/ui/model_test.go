@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -40,8 +41,8 @@ func TestModelInitializesDisabledItemsAndChecksStatuses(t *testing.T) {
 	model := New([]config.Process{{Name: "web"}, {Name: "worker"}}, fakeLookup{
 		statuses: map[string]process.Status{"web": {Running: true, PIDs: []int32{123}}},
 	}, nil)
-	if got := model.View(); !strings.Contains(got, "> [ ] web (checking)") ||
-		!strings.Contains(got, "  [ ] worker (checking)") {
+	if got := model.View(); !strings.Contains(got, "Processes") ||
+		!strings.Contains(got, ">   web") || !strings.Contains(got, "checking") {
 		t.Fatalf("initial View() = %q, want disabled items", got)
 	}
 
@@ -59,8 +60,8 @@ func TestModelInitializesDisabledItemsAndChecksStatuses(t *testing.T) {
 	if got, want := model.items[0].status, (process.Status{Running: true, PIDs: []int32{123}}); !reflect.DeepEqual(got, want) {
 		t.Errorf("web status = %+v, want %+v", got, want)
 	}
-	if got := model.View(); !strings.Contains(got, "> [✔] web") ||
-		!strings.Contains(got, "  [ ] worker") {
+	if got := model.View(); !strings.Contains(got, ">   web") ||
+		!strings.Contains(got, "running") || !strings.Contains(got, "stopped") {
 		t.Errorf("updated View() = %q, want running and stopped items", got)
 	}
 }
@@ -75,7 +76,7 @@ func TestModelDisplaysLookupErrors(t *testing.T) {
 	if !model.items[0].enabled {
 		t.Fatal("item is disabled after a failed status check")
 	}
-	if got := model.View(); !strings.Contains(got, "Process Manager │ Messages:") ||
+	if got := model.View(); !strings.Contains(got, "Process Manager") ||
 		!strings.Contains(got, "web: lookup failed") {
 		t.Errorf("View() = %q, want persistent lookup error", got)
 	}
@@ -110,6 +111,95 @@ func TestModelNavigatesWithArrowsAndVimKeys(t *testing.T) {
 	}
 }
 
+func TestModelUsesTerminalWidthForDashboard(t *testing.T) {
+	model := New([]config.Process{{Name: "web", Start: "serve-web"}}, fakeLookup{}, nil)
+
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 72, Height: 24})
+	model = updated.(Model)
+
+	if model.width != 72 {
+		t.Errorf("width = %d, want 72", model.width)
+	}
+	if got := model.View(); !strings.Contains(got, "┌ Processes ") ||
+		!strings.Contains(got, " ↑/k ↓/j navigate") {
+		t.Errorf("View() = %q, want dashboard framing and footer", got)
+	}
+}
+
+func TestModelKeepsDashboardWithinNarrowTerminal(t *testing.T) {
+	model := New([]config.Process{{Name: "web", Start: "serve-web"}}, fakeLookup{}, nil)
+
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 40, Height: 24})
+	model = updated.(Model)
+
+	for _, line := range strings.Split(model.View(), "\n") {
+		if len([]rune(stripANSI(line))) > 40 {
+			t.Errorf("line width = %d, want at most 40: %q", len([]rune(stripANSI(line))), line)
+		}
+	}
+}
+
+func TestModelUsesCompactViewForVeryNarrowTerminal(t *testing.T) {
+	model := New([]config.Process{{Name: "web"}}, fakeLookup{}, nil)
+
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 12, Height: 24})
+	model = updated.(Model)
+
+	if got, want := model.View(), "PM: web\n"; got != want {
+		t.Errorf("View() = %q, want %q", got, want)
+	}
+}
+
+func TestModelShowsConfirmationInCompactView(t *testing.T) {
+	for _, width := range []int{12, 20} {
+		t.Run(fmt.Sprintf("width %d", width), func(t *testing.T) {
+			model := New([]config.Process{{Name: "web"}}, fakeLookup{}, nil)
+			model.confirmation = &confirmation{index: 0, action: "start"}
+
+			updated, _ := model.Update(tea.WindowSizeMsg{Width: width, Height: 24})
+			model = updated.(Model)
+
+			if got, want := model.View(), "[y/n] start\n"; got != want {
+				t.Errorf("View() = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestModelKeepsConfirmationWithinNarrowTerminal(t *testing.T) {
+	model := New([]config.Process{{Name: "a-very-long-process-name"}}, fakeLookup{}, nil)
+	model.confirmation = &confirmation{index: 0, action: "start"}
+
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 40, Height: 24})
+	model = updated.(Model)
+
+	for _, line := range strings.Split(model.View(), "\n") {
+		if len([]rune(stripANSI(line))) > 40 {
+			t.Errorf("line width = %d, want at most 40: %q", len([]rune(stripANSI(line))), line)
+		}
+	}
+}
+
+func TestModelDoesNotHighlightEmptyProcessList(t *testing.T) {
+	if got := renderProcessTable(nil, 0, 100); strings.Contains(got, accent) {
+		t.Errorf("renderProcessTable() = %q, want an unselected empty-list message", got)
+	}
+}
+
+func stripANSI(value string) string {
+	for {
+		start := strings.Index(value, "\033[")
+		if start == -1 {
+			return value
+		}
+		end := strings.IndexByte(value[start:], 'm')
+		if end == -1 {
+			return value
+		}
+		value = value[:start] + value[start+end+1:]
+	}
+}
+
 func TestModelQuitsWithMainExitKeys(t *testing.T) {
 	model := New(nil, fakeLookup{}, nil)
 	for _, key := range []tea.KeyMsg{{Type: tea.KeyRunes, Runes: []rune{'q'}}, {Type: tea.KeyEsc}} {
@@ -136,7 +226,8 @@ func TestModelConfirmsStartAndRefreshesStatus(t *testing.T) {
 	if model.confirmation == nil || model.confirmation.action != "start" {
 		t.Fatalf("confirmation = %#v, want start confirmation", model.confirmation)
 	}
-	if got := model.View(); !strings.Contains(got, "Confirm start \"web\"?") {
+	if got := model.View(); !strings.Contains(got, "┌ Confirm ") ||
+		!strings.Contains(got, "start \"web\"?") {
 		t.Errorf("View() = %q, want confirmation modal", got)
 	}
 	if command != nil {
