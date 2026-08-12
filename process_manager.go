@@ -55,7 +55,12 @@ func execute(
 }
 
 func newApplication(processes []config.Process, lookup diagnostic.Lookup) application {
-	return tea.NewProgram(ui.New(processes, lookup))
+	controller := process.Controller{
+		Shell:    process.SystemShell{},
+		Launcher: process.SystemLauncher{},
+		Signaler: process.SystemSignaler{},
+	}
+	return tea.NewProgram(ui.New(processes, lookup, controller))
 }
 
 func diagnosticEnabled(arguments []string) (bool, error) {

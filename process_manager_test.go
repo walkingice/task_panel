@@ -40,7 +40,7 @@ func (factory *recordingApplicationFactory) New(processes []config.Process, look
 
 func TestRunStartsAndExitsApplication(t *testing.T) {
 	program := tea.NewProgram(
-		ui.New(nil, process.Lookup{}),
+		ui.New(nil, process.Lookup{}, process.Controller{}),
 		tea.WithInput(bytes.NewBufferString("q")),
 		tea.WithOutput(io.Discard),
 	)

@@ -16,6 +16,8 @@
   `j` and `k` keys.
 - Pressing Enter starts or stops a process after a confirmation modal prevents
   accidental actions.
+- In a confirmation modal, Enter or `y` confirms the action. Esc, `n`, or `q`
+  cancels it without changing the process.
 - A persistent panel on the right displays start, stop, error, and debugging
   messages.
 - On the main screen, pressing `q` or Esc exits PM.
