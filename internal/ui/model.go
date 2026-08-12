@@ -215,7 +215,7 @@ func (model Model) View() string {
 	if model.confirmation == nil {
 		return view + "\n"
 	}
-	return view + renderConfirmation(model, width, height)
+	return renderConfirmation(model, view, width, height)
 }
 
 func renderCompact(model Model, width int) string {
@@ -358,7 +358,7 @@ func statusText(status string) string {
 	return status
 }
 
-func renderConfirmation(model Model, width, height int) string {
+func renderConfirmation(model Model, view string, width, height int) string {
 	item := model.items[model.confirmation.index]
 	dialogWidth := min(60, width-4)
 	lines := []string{
@@ -373,11 +373,11 @@ func renderConfirmation(model Model, width, height int) string {
 	dialogLines := strings.Split(dialog, "\n")
 	top := max(1, (height-len(dialogLines))/2+1)
 	left := max(1, (width-dialogWidth)/2+1)
-	positioned := make([]string, len(dialogLines))
+	viewLines := strings.Split(view, "\n")
 	for index, line := range dialogLines {
-		positioned[index] = fmt.Sprintf("\033[%d;%dH%s", top+index, left, line)
+		viewLines[top-1+index] = strings.Repeat(" ", left-1) + line
 	}
-	return strings.Join(positioned, "")
+	return strings.Join(viewLines, "\n") + "\n"
 }
 
 func pidLabel(item item) string {

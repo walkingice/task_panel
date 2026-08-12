@@ -182,22 +182,23 @@ func TestConfirmationDialogIsCentered(t *testing.T) {
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
 	model = updated.(Model)
 
-	if got := model.View(); !strings.Contains(got, "\033[12;11H") ||
-		!strings.Contains(got, "[Enter/y] Confirm") ||
-		!strings.Contains(got, "[Esc/n/q] Cancel") {
-		t.Errorf("View() = %q, want centered confirmation dialog", got)
+	lines := strings.Split(model.View(), "\n")
+	if got := stripANSI(lines[11]); !strings.HasPrefix(got, strings.Repeat(" ", 10)+"┌ Confirmation ") ||
+		!strings.Contains(model.View(), "[Enter/y] Confirm") ||
+		!strings.Contains(model.View(), "[Esc/n/q] Cancel") {
+		t.Errorf("View() = %q, want centered confirmation dialog", model.View())
 	}
 }
 
-func TestConfirmationDialogDoesNotPrependNewline(t *testing.T) {
+func TestConfirmationDialogDoesNotUseCursorPositioning(t *testing.T) {
 	model := New([]config.Process{{Name: "web"}}, fakeLookup{}, nil)
 	model.confirmation = &confirmation{index: 0, action: "start"}
 
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
 	model = updated.(Model)
 
-	if got := model.View(); strings.Contains(got, "\n\033[12;11H") {
-		t.Errorf("View() = %q, want dialog cursor positioning without a preceding newline", got)
+	if got := model.View(); strings.Contains(got, "\033[") && strings.Contains(got, "H") {
+		t.Errorf("View() = %q, want dialog composed without cursor positioning", got)
 	}
 }
 
@@ -260,11 +261,7 @@ func TestModelKeepsConfirmationWithinNarrowTerminal(t *testing.T) {
 	model = updated.(Model)
 
 	view := model.View()
-	background, _, found := strings.Cut(view, "\033[9;3H")
-	if !found {
-		t.Fatalf("View() = %q, want cursor-positioned confirmation dialog", view)
-	}
-	for _, line := range strings.Split(background, "\n") {
+	for _, line := range strings.Split(view, "\n") {
 		if len([]rune(stripANSI(line))) > 40 {
 			t.Errorf("line width = %d, want at most 40: %q", len([]rune(stripANSI(line))), line)
 		}
