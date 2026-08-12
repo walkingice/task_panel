@@ -126,6 +126,81 @@ func TestModelUsesTerminalWidthForDashboard(t *testing.T) {
 	}
 }
 
+func TestModelReservesBottomThirtyPercentForDetails(t *testing.T) {
+	model := New([]config.Process{{Name: "web"}}, fakeLookup{}, nil)
+
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	model = updated.(Model)
+
+	view := stripANSI(model.View())
+	lines := strings.Split(view, "\n")
+	detailsStart := indexOfLine(lines, "┌ Details ")
+	footer := indexOfLine(lines, " ↑/k ↓/j navigate")
+	if got, want := footer-detailsStart, 9; got != want {
+		t.Errorf("Details height = %d, want %d", got, want)
+	}
+}
+
+func TestModelFitsWithinTerminalHeight(t *testing.T) {
+	model := New([]config.Process{{Name: "web"}}, fakeLookup{}, nil)
+
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	model = updated.(Model)
+
+	if got, want := len(strings.Split(strings.TrimSuffix(model.View(), "\n"), "\n")), 30; got != want {
+		t.Errorf("View() has %d lines, want %d", got, want)
+	}
+}
+
+func TestProcessTableKeepsVerticalPadding(t *testing.T) {
+	items := make([]item, 10)
+	for index := range items {
+		items[index].configured.Name = fmt.Sprintf("process-%d", index)
+	}
+
+	lines := strings.Split(stripANSI(renderProcessTable(items, 0, 80, 9)), "\n")
+	if got, want := lines[1], "│"+strings.Repeat(" ", 78)+"│"; got != want {
+		t.Errorf("top padding = %q, want %q", got, want)
+	}
+	if got, want := lines[len(lines)-2], "│"+strings.Repeat(" ", 78)+"│"; got != want {
+		t.Errorf("bottom padding = %q, want %q", got, want)
+	}
+}
+
+func TestRunningStatusIsCheckedAndBold(t *testing.T) {
+	model := runningModel(&fakeController{})
+
+	if got := model.View(); !strings.Contains(got, bold+"✔ running"+reset) {
+		t.Errorf("View() = %q, want bold checked running status", got)
+	}
+}
+
+func TestConfirmationDialogIsCentered(t *testing.T) {
+	model := New([]config.Process{{Name: "web"}}, fakeLookup{}, nil)
+	model.confirmation = &confirmation{index: 0, action: "start"}
+
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	model = updated.(Model)
+
+	if got := model.View(); !strings.Contains(got, "\033[12;11H") ||
+		!strings.Contains(got, "[Enter/y] Confirm") ||
+		!strings.Contains(got, "[Esc/n/q] Cancel") {
+		t.Errorf("View() = %q, want centered confirmation dialog", got)
+	}
+}
+
+func TestConfirmationDialogDoesNotPrependNewline(t *testing.T) {
+	model := New([]config.Process{{Name: "web"}}, fakeLookup{}, nil)
+	model.confirmation = &confirmation{index: 0, action: "start"}
+
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	model = updated.(Model)
+
+	if got := model.View(); strings.Contains(got, "\n\033[12;11H") {
+		t.Errorf("View() = %q, want dialog cursor positioning without a preceding newline", got)
+	}
+}
+
 func TestModelKeepsDashboardWithinNarrowTerminal(t *testing.T) {
 	model := New([]config.Process{{Name: "web", Start: "serve-web"}}, fakeLookup{}, nil)
 
@@ -143,6 +218,17 @@ func TestModelUsesCompactViewForVeryNarrowTerminal(t *testing.T) {
 	model := New([]config.Process{{Name: "web"}}, fakeLookup{}, nil)
 
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 12, Height: 24})
+	model = updated.(Model)
+
+	if got, want := model.View(), "PM: web\n"; got != want {
+		t.Errorf("View() = %q, want %q", got, want)
+	}
+}
+
+func TestModelUsesCompactViewForShortTerminal(t *testing.T) {
+	model := New([]config.Process{{Name: "web"}}, fakeLookup{}, nil)
+
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 15})
 	model = updated.(Model)
 
 	if got, want := model.View(), "PM: web\n"; got != want {
@@ -173,7 +259,12 @@ func TestModelKeepsConfirmationWithinNarrowTerminal(t *testing.T) {
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 40, Height: 24})
 	model = updated.(Model)
 
-	for _, line := range strings.Split(model.View(), "\n") {
+	view := model.View()
+	background, _, found := strings.Cut(view, "\033[9;3H")
+	if !found {
+		t.Fatalf("View() = %q, want cursor-positioned confirmation dialog", view)
+	}
+	for _, line := range strings.Split(background, "\n") {
 		if len([]rune(stripANSI(line))) > 40 {
 			t.Errorf("line width = %d, want at most 40: %q", len([]rune(stripANSI(line))), line)
 		}
@@ -181,7 +272,7 @@ func TestModelKeepsConfirmationWithinNarrowTerminal(t *testing.T) {
 }
 
 func TestModelDoesNotHighlightEmptyProcessList(t *testing.T) {
-	if got := renderProcessTable(nil, 0, 100); strings.Contains(got, accent) {
+	if got := renderProcessTable(nil, 0, 100, 20); strings.Contains(got, accent) {
 		t.Errorf("renderProcessTable() = %q, want an unselected empty-list message", got)
 	}
 }
@@ -192,12 +283,21 @@ func stripANSI(value string) string {
 		if start == -1 {
 			return value
 		}
-		end := strings.IndexByte(value[start:], 'm')
+		end := strings.IndexAny(value[start:], "mH")
 		if end == -1 {
 			return value
 		}
 		value = value[:start] + value[start+end+1:]
 	}
+}
+
+func indexOfLine(lines []string, prefix string) int {
+	for index, line := range lines {
+		if strings.HasPrefix(line, prefix) {
+			return index
+		}
+	}
+	return -1
 }
 
 func TestModelQuitsWithMainExitKeys(t *testing.T) {
@@ -226,8 +326,9 @@ func TestModelConfirmsStartAndRefreshesStatus(t *testing.T) {
 	if model.confirmation == nil || model.confirmation.action != "start" {
 		t.Fatalf("confirmation = %#v, want start confirmation", model.confirmation)
 	}
-	if got := model.View(); !strings.Contains(got, "┌ Confirm ") ||
-		!strings.Contains(got, "start \"web\"?") {
+	if got := model.View(); !strings.Contains(got, "┌ Confirmation ") ||
+		!strings.Contains(got, "Process: web") ||
+		!strings.Contains(got, "[Enter/y] Confirm") {
 		t.Errorf("View() = %q, want confirmation modal", got)
 	}
 	if command != nil {

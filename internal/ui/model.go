@@ -30,6 +30,7 @@ type Model struct {
 	confirmation *confirmation
 	messages     []string
 	width        int
+	height       int
 }
 
 type item struct {
@@ -89,6 +90,7 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return model.applyControl(message)
 	case tea.WindowSizeMsg:
 		model.width = message.Width
+		model.height = message.Height
 		return model, nil
 	case tea.KeyMsg:
 		return model.updateKey(message)
@@ -199,18 +201,21 @@ func (model Model) View() string {
 	if width == 0 {
 		width = 100
 	}
-	if width < 24 {
+	height := model.height
+	if height == 0 {
+		height = 30
+	}
+	if width < 24 || height < 16 {
 		return renderCompact(model, width)
 	}
-	view := renderTitle(width) + "\n" + renderProcessTable(model.items, model.selected, width)
-	view += "\n" + renderDetails(model, width) + "\n" + renderFooter(width)
+	detailsHeight := max(5, height*30/100)
+	processHeight := height - detailsHeight - 2
+	view := renderTitle(width) + "\n" + renderProcessTable(model.items, model.selected, width, processHeight)
+	view += "\n" + renderDetails(model, width, detailsHeight) + "\n" + renderFooter(width)
 	if model.confirmation == nil {
 		return view + "\n"
 	}
-	item := model.items[model.confirmation.index]
-	confirmation := fmt.Sprintf("%s %q? Enter/y confirm; Esc/n/q cancel",
-		model.confirmation.action, item.configured.Name)
-	return view + "\n" + renderBox("Confirm", []string{confirmation}, width, -1) + "\n"
+	return view + renderConfirmation(model, width, height)
 }
 
 func renderCompact(model Model, width int) string {
@@ -226,6 +231,7 @@ func renderCompact(model Model, width int) string {
 
 const (
 	reset  = "\033[0m"
+	bold   = "\033[1m"
 	purple = "\033[38;5;141m"
 	gray   = "\033[38;5;245m"
 	accent = "\033[48;5;60m\033[97m"
@@ -235,28 +241,35 @@ func renderTitle(width int) string {
 	return accent + pad(" Process Manager ", width) + reset
 }
 
-func renderProcessTable(items []item, selected, width int) string {
+func renderProcessTable(items []item, selected, width, height int) string {
 	lines := []string{fmt.Sprintf("%-3s %-24s %-11s %-9s %s", "", "PROCESS", "STATUS", "PID", "COMMAND")}
-	for index, item := range items {
+	visibleItems := min(len(items), max(0, height-5))
+	for index, item := range items[:visibleItems] {
 		marker := " "
 		if index == selected {
 			marker = ">"
 		}
+		status := statusLabel(item)
 		lines = append(lines, fmt.Sprintf("%-3s %-24s %-11s %-9s %s", marker,
-			truncate(item.configured.Name, 24), statusLabel(item), pidLabel(item),
+			truncate(item.configured.Name, 24), status, pidLabel(item),
 			truncate(item.configured.Start, max(1, width-54))))
 	}
 	if len(items) == 0 {
 		lines = append(lines, "   No configured processes")
 	}
 	selectedLine := -1
-	if len(items) > 0 {
+	if selected < visibleItems {
 		selectedLine = selected + 1
 	}
-	return renderBox("Processes", lines, width, selectedLine)
+	view := renderBox("Processes", lines, width, selectedLine, height-2, 1)
+	for _, item := range items {
+		status := statusLabel(item)
+		view = strings.Replace(view, pad(status, 11), renderStatusCell(status), 1)
+	}
+	return view
 }
 
-func renderDetails(model Model, width int) string {
+func renderDetails(model Model, width, height int) string {
 	lines := []string{"No process selected"}
 	if len(model.items) > 0 {
 		item := model.items[model.selected]
@@ -278,22 +291,32 @@ func renderDetails(model Model, width int) string {
 		lines = append(lines, "", "Activity:")
 		lines = append(lines, model.messages...)
 	}
-	return renderBox("Details", lines, width, -1)
+	view := renderBox("Details", lines, width, -1, height-2, 0)
+	if len(model.items) > 0 {
+		view = strings.Replace(view, "Status: "+statusLabel(model.items[model.selected]),
+			"Status: "+renderStatus(statusLabel(model.items[model.selected])), 1)
+	}
+	return view
 }
 
 func renderFooter(width int) string {
 	return gray + pad(truncate(" ↑/k ↓/j navigate  Enter start/stop  q quit ", width), width) + reset
 }
 
-func renderBox(title string, lines []string, width, selectedLine int) string {
+func renderBox(title string, lines []string, width, selectedLine, contentHeight, verticalPadding int) string {
 	inside := width - 2
 	top := purple + "┌ " + title + " " + strings.Repeat("─", max(0, inside-len(title)-2)) + "┐" + reset
 	bottom := purple + "└" + strings.Repeat("─", inside) + "┘" + reset
-	rendered := make([]string, 0, len(lines)+2)
+	rendered := make([]string, 0, contentHeight+2)
 	rendered = append(rendered, top)
-	for index, line := range lines {
+	for index := 0; index < contentHeight; index++ {
+		line := ""
+		lineIndex := index - verticalPadding
+		if lineIndex >= 0 && lineIndex < len(lines) {
+			line = lines[lineIndex]
+		}
 		content := " " + truncate(line, inside-1)
-		if index == selectedLine {
+		if lineIndex >= 0 && lineIndex == selectedLine {
 			content = accent + pad(content, inside) + reset
 		} else {
 			content = pad(content, inside)
@@ -312,6 +335,49 @@ func statusLabel(item item) string {
 		return "running"
 	}
 	return "stopped"
+}
+
+func renderStatus(status string) string {
+	if status == "running" {
+		return bold + statusText(status) + reset
+	}
+	return status
+}
+
+func renderStatusCell(status string) string {
+	if status == "running" {
+		return bold + pad(statusText(status), 11) + reset
+	}
+	return pad(statusText(status), 11)
+}
+
+func statusText(status string) string {
+	if status == "running" {
+		return "✔ " + status
+	}
+	return status
+}
+
+func renderConfirmation(model Model, width, height int) string {
+	item := model.items[model.confirmation.index]
+	dialogWidth := min(60, width-4)
+	lines := []string{
+		"Confirm " + strings.ToUpper(model.confirmation.action),
+		"",
+		"Process: " + item.configured.Name,
+		"This will " + model.confirmation.action + " the selected process.",
+		"",
+		"[Enter/y] Confirm    [Esc/n/q] Cancel",
+	}
+	dialog := renderBox("Confirmation", lines, dialogWidth, -1, len(lines), 0)
+	dialogLines := strings.Split(dialog, "\n")
+	top := max(1, (height-len(dialogLines))/2+1)
+	left := max(1, (width-dialogWidth)/2+1)
+	positioned := make([]string, len(dialogLines))
+	for index, line := range dialogLines {
+		positioned[index] = fmt.Sprintf("\033[%d;%dH%s", top+index, left, line)
+	}
+	return strings.Join(positioned, "")
 }
 
 func pidLabel(item item) string {
