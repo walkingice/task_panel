@@ -18,7 +18,7 @@ Later phases build on the public behavior defined in `SPEC.md`.
 
 ## Phase 1: Configuration Loading and Validation
 
-1. Load the default configuration from `~/.conf/jchu/process_manager.toml`.
+1. Load the default configuration from `~/.config/jchu/process_manager.toml`.
 2. Support `-f` to select a different configuration file.
 3. Parse `[[process]]` entries into explicit internal types.
 4. Validate required `name` and `start` fields and the `find` plus `stop`

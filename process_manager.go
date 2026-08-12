@@ -14,7 +14,7 @@ import (
 	"github.com/walkingice/process_manager/ui"
 )
 
-const defaultConfigFile = ".conf/jchu/process_manager.toml"
+const defaultConfigFile = ".config/jchu/process_manager.toml"
 
 type application interface {
 	Run() (tea.Model, error)
