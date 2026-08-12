@@ -1,0 +1,38 @@
+# Example configuration for Process Manager.
+# `name` is the name of the managed process.
+# `start` is the command that starts the process.
+# `id` is a command that prints one or more PIDs of the corresponding process.
+# `find` is a command that exits successfully only while the process is
+# running. Entries that use `find` must also set `stop`.
+# `pattern` is a regular expression matched against process command lines.
+# `stop` is the command that stops the process. If omitted, PM sends a kill
+# signal to each matched process.
+# Commands are executed by the system shell and must suit the target platform.
+
+# First process.
+[[process]]
+name = "mkdocs"
+start = "python $HOME/mycode/mkdocs.py --some args"
+
+# Second process.
+# The start command can contain double quotes.
+[[process]]
+name = "my go process"
+start = '/path/to/mygo --key "this is my daemon"'
+pattern = ".* my daemon"
+
+# Third process.
+# This process is launched by a shell command, so the binary name is unclear.
+# Use the `id` command to print its PID.
+[[process]]
+name = "Shell Launched process"
+start = "sh /path/to/other.sh"
+id = "pgrep -f tmux"
+
+# Fourth process.
+# This is a Docker container.
+[[process]]
+name = "docker container"
+start = "docker start myapp"
+find = "docker inspect -f '{{if .State.Running}}running{{end}}' myapp | grep -qx running"
+stop = "docker stop myapp"
