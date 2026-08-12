@@ -11,7 +11,8 @@
 - After loading the configuration file, PM lists all defined processes.
 - Initially, each view item is disabled while PM asynchronously checks the
   process status. The item is enabled after its check completes.
-- A running process is shown with a checkbox: ✔.
+- The process table reserves an icon column before status. A running process
+  shows ✔ in that column and displays `running` in bold.
 - Users can move the cursor with the Up and Down arrow keys or the Vim-style
   `j` and `k` keys.
 - Pressing Enter starts or stops a process after a confirmation modal prevents

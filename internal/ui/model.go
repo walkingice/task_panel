@@ -242,7 +242,7 @@ func renderTitle(width int) string {
 }
 
 func renderProcessTable(items []item, selected, width, height int) string {
-	lines := []string{fmt.Sprintf("%-3s %-24s %-11s %-9s %s", "", "PROCESS", "STATUS", "PID", "COMMAND")}
+	lines := []string{fmt.Sprintf("%-3s %-24s %-1s %-11s %-9s %s", "", "PROCESS", "", "STATUS", "PID", "COMMAND")}
 	visibleItems := min(len(items), max(0, height-5))
 	for index, item := range items[:visibleItems] {
 		marker := " "
@@ -250,9 +250,9 @@ func renderProcessTable(items []item, selected, width, height int) string {
 			marker = ">"
 		}
 		status := statusLabel(item)
-		lines = append(lines, fmt.Sprintf("%-3s %-24s %-11s %-9s %s", marker,
-			truncate(item.configured.Name, 24), status, pidLabel(item),
-			truncate(item.configured.Start, max(1, width-54))))
+		lines = append(lines, fmt.Sprintf("%-3s %-24s %-1s %-11s %-9s %s", marker,
+			truncate(item.configured.Name, 24), statusIcon(status), status,
+			pidLabel(item), truncate(item.configured.Start, max(1, width-56))))
 	}
 	if len(items) == 0 {
 		lines = append(lines, "   No configured processes")
@@ -339,23 +339,23 @@ func statusLabel(item item) string {
 
 func renderStatus(status string) string {
 	if status == "running" {
-		return bold + statusText(status) + reset
+		return bold + status + reset
 	}
 	return status
 }
 
 func renderStatusCell(status string) string {
 	if status == "running" {
-		return bold + pad(statusText(status), 11) + reset
+		return bold + status + reset + strings.Repeat(" ", 11-len(status))
 	}
-	return pad(statusText(status), 11)
+	return pad(status, 11)
 }
 
-func statusText(status string) string {
+func statusIcon(status string) string {
 	if status == "running" {
-		return "✔ " + status
+		return "✔"
 	}
-	return status
+	return ""
 }
 
 func renderConfirmation(model Model, view string, width, height int) string {

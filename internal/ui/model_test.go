@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"process_manager/internal/config"
@@ -167,11 +168,24 @@ func TestProcessTableKeepsVerticalPadding(t *testing.T) {
 	}
 }
 
-func TestRunningStatusIsCheckedAndBold(t *testing.T) {
-	model := runningModel(&fakeController{})
+func TestProcessTableUsesSeparateRunningIconCell(t *testing.T) {
+	items := []item{
+		{configured: config.Process{Name: "web"}, enabled: true,
+			status: process.Status{Running: true}},
+		{configured: config.Process{Name: "worker"}, enabled: true},
+	}
 
-	if got := model.View(); !strings.Contains(got, bold+"✔ running"+reset) {
-		t.Errorf("View() = %q, want bold checked running status", got)
+	view := renderProcessTable(items, 0, 100, 9)
+	if !strings.Contains(stripANSI(view), "✔ running") ||
+		!strings.Contains(view, bold+"running"+reset) {
+		t.Errorf("renderProcessTable() = %q, want a check icon before bold running", view)
+	}
+
+	lines := strings.Split(stripANSI(view), "\n")
+	running := strings.Index(lines[3], "running")
+	stopped := strings.Index(lines[4], "stopped")
+	if got, want := utf8.RuneCountInString(lines[3][:running]), utf8.RuneCountInString(lines[4][:stopped]); got != want {
+		t.Errorf("status positions = %d and %d, want aligned", got, want)
 	}
 }
 
