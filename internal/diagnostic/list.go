@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/walkingice/process_manager/config"
-	"github.com/walkingice/process_manager/process"
+	"process_manager/internal/config"
+	"process_manager/internal/process"
 )
 
 // Lookup checks the running status of a configured process.

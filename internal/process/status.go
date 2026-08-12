@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/walkingice/process_manager/config"
+	"process_manager/internal/config"
 )
 
 // Shell runs configured commands through the operating system shell.

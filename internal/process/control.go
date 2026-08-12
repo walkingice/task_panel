@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/walkingice/process_manager/config"
+	"process_manager/internal/config"
 )
 
 // Launcher starts configured commands without waiting for them to finish.

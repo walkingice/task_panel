@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/walkingice/process_manager/config"
-	"github.com/walkingice/process_manager/process"
+	"process_manager/internal/config"
+	"process_manager/internal/process"
 )
 
 // Lookup checks the status of a configured process.

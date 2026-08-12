@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/walkingice/process_manager/config"
+	"process_manager/internal/config"
 )
 
 type fakeLauncher struct {

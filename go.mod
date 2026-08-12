@@ -1,4 +1,4 @@
-module github.com/walkingice/process_manager
+module process_manager
 
 go 1.26.0
 
