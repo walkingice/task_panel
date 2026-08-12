@@ -3,6 +3,7 @@ package process
 import (
 	"errors"
 	"reflect"
+	"runtime"
 	"testing"
 
 	"github.com/walkingice/process_manager/config"
@@ -21,6 +22,50 @@ func (launcher *fakeLauncher) Launch(command string) error {
 type fakeSignaler struct {
 	pids []int32
 	err  error
+}
+
+type fakeReleasedProcess struct {
+	released bool
+	err      error
+}
+
+func (process *fakeReleasedProcess) Release() error {
+	process.released = true
+	return process.err
+}
+
+type fakeCommandStarter struct {
+	name      string
+	arguments []string
+	process   releasedProcess
+	err       error
+}
+
+func (starter *fakeCommandStarter) Start(name string, arguments []string) (releasedProcess, error) {
+	starter.name = name
+	starter.arguments = arguments
+	return starter.process, starter.err
+}
+
+func TestLaunchCommandReleasesChildProcess(t *testing.T) {
+	child := &fakeReleasedProcess{}
+	starter := &fakeCommandStarter{process: child}
+
+	if err := launchCommand(starter, "serve-web"); err != nil {
+		t.Fatalf("launchCommand() error = %v", err)
+	}
+	if !child.released {
+		t.Fatal("launchCommand() did not release child process")
+	}
+	if runtime.GOOS == "windows" {
+		if starter.name != "cmd" || !reflect.DeepEqual(starter.arguments, []string{"/C", "serve-web"}) {
+			t.Errorf("command = %q %v, want Windows shell", starter.name, starter.arguments)
+		}
+		return
+	}
+	if starter.name != "sh" || !reflect.DeepEqual(starter.arguments, []string{"-c", "serve-web"}) {
+		t.Errorf("command = %q %v, want POSIX shell", starter.name, starter.arguments)
+	}
 }
 
 func (signaler *fakeSignaler) Stop(pid int32) error {

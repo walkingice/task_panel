@@ -24,12 +24,34 @@ type SystemLauncher struct{}
 
 // Launch starts command and releases PM's reference to the child process.
 func (SystemLauncher) Launch(command string) error {
-	name, arguments := shellCommand(command)
+	return launchCommand(systemCommandStarter{}, command)
+}
+
+type releasedProcess interface {
+	Release() error
+}
+
+type commandStarter interface {
+	Start(string, []string) (releasedProcess, error)
+}
+
+type systemCommandStarter struct{}
+
+func (systemCommandStarter) Start(name string, arguments []string) (releasedProcess, error) {
 	child := exec.Command(name, arguments...)
 	if err := child.Start(); err != nil {
+		return nil, err
+	}
+	return child.Process, nil
+}
+
+func launchCommand(starter commandStarter, command string) error {
+	name, arguments := shellCommand(command)
+	child, err := starter.Start(name, arguments)
+	if err != nil {
 		return err
 	}
-	return child.Process.Release()
+	return child.Release()
 }
 
 // SystemSignaler stops operating-system processes.
