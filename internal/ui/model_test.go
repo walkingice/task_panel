@@ -216,6 +216,30 @@ func TestConfirmationDialogDoesNotUseCursorPositioning(t *testing.T) {
 	}
 }
 
+func TestConfirmationDialogColorsAction(t *testing.T) {
+	tests := []struct {
+		action string
+		color  string
+	}{
+		{action: "start", color: green},
+		{action: "stop", color: red},
+	}
+
+	for _, test := range tests {
+		t.Run(test.action, func(t *testing.T) {
+			model := New([]config.Process{{Name: "web"}}, fakeLookup{}, nil)
+			model.confirmation = &confirmation{index: 0, action: test.action}
+			model.width = 80
+			model.height = 30
+
+			if got := model.View(); !strings.Contains(got,
+				"Confirm "+test.color+strings.ToUpper(test.action)+reset) {
+				t.Errorf("View() = %q, want %s action color", got, test.action)
+			}
+		})
+	}
+}
+
 func TestModelKeepsDashboardWithinNarrowTerminal(t *testing.T) {
 	model := New([]config.Process{{Name: "web", Start: "serve-web"}}, fakeLookup{}, nil)
 

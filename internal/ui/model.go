@@ -232,6 +232,8 @@ func renderCompact(model Model, width int) string {
 const (
 	reset  = "\033[0m"
 	bold   = "\033[1m"
+	green  = "\033[38;5;42m"
+	red    = "\033[38;5;196m"
 	purple = "\033[38;5;141m"
 	gray   = "\033[38;5;245m"
 	accent = "\033[48;5;60m\033[97m"
@@ -370,6 +372,8 @@ func renderConfirmation(model Model, view string, width, height int) string {
 		"[Enter/y] Confirm    [Esc/n/q] Cancel",
 	}
 	dialog := renderBox("Confirmation", lines, dialogWidth, -1, len(lines), 0)
+	dialog = strings.Replace(dialog, "Confirm "+strings.ToUpper(model.confirmation.action),
+		renderConfirmationAction(model.confirmation.action), 1)
 	dialogLines := strings.Split(dialog, "\n")
 	top := max(1, (height-len(dialogLines))/2+1)
 	left := max(1, (width-dialogWidth)/2+1)
@@ -378,6 +382,14 @@ func renderConfirmation(model Model, view string, width, height int) string {
 		viewLines[top-1+index] = strings.Repeat(" ", left-1) + line
 	}
 	return strings.Join(viewLines, "\n") + "\n"
+}
+
+func renderConfirmationAction(action string) string {
+	color := green
+	if action == "stop" {
+		color = red
+	}
+	return "Confirm " + color + strings.ToUpper(action) + reset
 }
 
 func pidLabel(item item) string {
