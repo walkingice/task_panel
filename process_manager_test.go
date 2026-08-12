@@ -24,9 +24,23 @@ func (app *fakeApplication) Run() (tea.Model, error) {
 	return nil, app.err
 }
 
+type recordingApplicationFactory struct {
+	application application
+	processes   []config.Process
+	lookup      diagnostic.Lookup
+	calls       int
+}
+
+func (factory *recordingApplicationFactory) New(processes []config.Process, lookup diagnostic.Lookup) application {
+	factory.calls++
+	factory.processes = processes
+	factory.lookup = lookup
+	return factory.application
+}
+
 func TestRunStartsAndExitsApplication(t *testing.T) {
 	program := tea.NewProgram(
-		ui.New(),
+		ui.New(nil, process.Lookup{}),
 		tea.WithInput(bytes.NewBufferString("q")),
 		tea.WithOutput(io.Discard),
 	)
@@ -153,7 +167,7 @@ func TestExecuteReturnsConfigurationErrorBeforeDiagnosticLookup(t *testing.T) {
 	loadError := errors.New("read configuration")
 	reader := errorFileReader{err: loadError}
 	lookup := &countingLookup{}
-	program := &fakeApplication{}
+	factory := &recordingApplicationFactory{application: &fakeApplication{}}
 
 	err := execute(
 		[]string{"-diagnostic"},
@@ -161,7 +175,7 @@ func TestExecuteReturnsConfigurationErrorBeforeDiagnosticLookup(t *testing.T) {
 		reader,
 		io.Discard,
 		lookup,
-		program,
+		factory.New,
 	)
 
 	if !errors.Is(err, loadError) {
@@ -170,15 +184,15 @@ func TestExecuteReturnsConfigurationErrorBeforeDiagnosticLookup(t *testing.T) {
 	if lookup.calls != 0 {
 		t.Errorf("lookup calls = %d, want 0", lookup.calls)
 	}
-	if program.ran {
-		t.Error("program ran after configuration loading failed")
+	if factory.calls != 0 {
+		t.Error("application was created after configuration loading failed")
 	}
 }
 
 func TestExecuteWritesDiagnosticListWithoutRunningProgram(t *testing.T) {
 	reader := &testFileReader{data: []byte("[[process]]\nname = 'web'\nstart = 'serve-web'\n")}
 	lookup := &countingLookup{}
-	program := &fakeApplication{}
+	factory := &recordingApplicationFactory{application: &fakeApplication{}}
 	var output bytes.Buffer
 
 	err := execute(
@@ -187,7 +201,7 @@ func TestExecuteWritesDiagnosticListWithoutRunningProgram(t *testing.T) {
 		reader,
 		&output,
 		lookup,
-		program,
+		factory.New,
 	)
 
 	if err != nil {
@@ -199,8 +213,8 @@ func TestExecuteWritesDiagnosticListWithoutRunningProgram(t *testing.T) {
 	if lookup.calls != 1 {
 		t.Errorf("lookup calls = %d, want 1", lookup.calls)
 	}
-	if program.ran {
-		t.Error("program ran in diagnostic mode")
+	if factory.calls != 0 {
+		t.Error("application was created in diagnostic mode")
 	}
 }
 
@@ -208,6 +222,7 @@ func TestExecuteRunsProgramWhenDiagnosticIsDisabled(t *testing.T) {
 	reader := &testFileReader{data: []byte("[[process]]\nname = 'web'\nstart = 'serve-web'\n")}
 	lookup := &countingLookup{}
 	program := &fakeApplication{}
+	factory := &recordingApplicationFactory{application: program}
 
 	err := execute(
 		[]string{"-diagnostic=false"},
@@ -215,7 +230,7 @@ func TestExecuteRunsProgramWhenDiagnosticIsDisabled(t *testing.T) {
 		reader,
 		io.Discard,
 		lookup,
-		program,
+		factory.New,
 	)
 
 	if err != nil {
@@ -226,6 +241,15 @@ func TestExecuteRunsProgramWhenDiagnosticIsDisabled(t *testing.T) {
 	}
 	if !program.ran {
 		t.Error("program did not run when diagnostic mode was disabled")
+	}
+	if factory.calls != 1 {
+		t.Errorf("application factory calls = %d, want 1", factory.calls)
+	}
+	if got := factory.processes[0].Name; got != "web" {
+		t.Errorf("factory process name = %q, want web", got)
+	}
+	if factory.lookup != lookup {
+		t.Error("factory did not receive lookup")
 	}
 }
 

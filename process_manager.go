@@ -20,11 +20,12 @@ type application interface {
 	Run() (tea.Model, error)
 }
 
+type applicationFactory func([]config.Process, diagnostic.Lookup) application
+
 func main() {
-	program := tea.NewProgram(ui.New())
 	lookup := process.Lookup{Shell: process.SystemShell{}, Inspector: process.SystemInspector{}}
 	if err := execute(
-		os.Args[1:], os.UserHomeDir, osFileReader{}, os.Stdout, lookup, program,
+		os.Args[1:], os.UserHomeDir, osFileReader{}, os.Stdout, lookup, newApplication,
 	); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -37,7 +38,7 @@ func execute(
 	reader config.FileReader,
 	output io.Writer,
 	lookup diagnostic.Lookup,
-	program application,
+	newApplication applicationFactory,
 ) error {
 	configuration, err := loadConfiguration(arguments, homeDirectory, reader)
 	if err != nil {
@@ -50,7 +51,11 @@ func execute(
 	if diagnosticMode {
 		return diagnostic.List(output, configuration.Processes, lookup)
 	}
-	return run(program)
+	return run(newApplication(configuration.Processes, lookup))
+}
+
+func newApplication(processes []config.Process, lookup diagnostic.Lookup) application {
+	return tea.NewProgram(ui.New(processes, lookup))
 }
 
 func diagnosticEnabled(arguments []string) (bool, error) {
