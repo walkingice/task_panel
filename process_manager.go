@@ -9,6 +9,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/walkingice/process_manager/config"
+	"github.com/walkingice/process_manager/diagnostic"
+	"github.com/walkingice/process_manager/process"
 	"github.com/walkingice/process_manager/ui"
 )
 
@@ -19,15 +21,47 @@ type application interface {
 }
 
 func main() {
-	if _, err := loadConfiguration(os.Args[1:], os.UserHomeDir, osFileReader{}); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
 	program := tea.NewProgram(ui.New())
-	if err := run(program); err != nil {
+	lookup := process.Lookup{Shell: process.SystemShell{}, Inspector: process.SystemInspector{}}
+	if err := execute(
+		os.Args[1:], os.UserHomeDir, osFileReader{}, os.Stdout, lookup, program,
+	); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func execute(
+	arguments []string,
+	homeDirectory func() (string, error),
+	reader config.FileReader,
+	output io.Writer,
+	lookup diagnostic.Lookup,
+	program application,
+) error {
+	configuration, err := loadConfiguration(arguments, homeDirectory, reader)
+	if err != nil {
+		return err
+	}
+	diagnosticMode, err := diagnosticEnabled(arguments)
+	if err != nil {
+		return err
+	}
+	if diagnosticMode {
+		return diagnostic.List(output, configuration.Processes, lookup)
+	}
+	return run(program)
+}
+
+func diagnosticEnabled(arguments []string) (bool, error) {
+	flags := flag.NewFlagSet("pm", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	flags.String("f", "", "configuration file path")
+	diagnostic := flags.Bool("diagnostic", false, "list process states without starting the TUI")
+	if err := flags.Parse(arguments); err != nil {
+		return false, fmt.Errorf("parse command-line flags: %w", err)
+	}
+	return *diagnostic, nil
 }
 
 func run(program application) error {
@@ -57,6 +91,7 @@ func configurationPath(arguments []string, homeDirectory func() (string, error))
 	flags := flag.NewFlagSet("pm", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	path := flags.String("f", "", "configuration file path")
+	flags.Bool("diagnostic", false, "list process states without starting the TUI")
 	if err := flags.Parse(arguments); err != nil {
 		return "", fmt.Errorf("parse command-line flags: %w", err)
 	}
