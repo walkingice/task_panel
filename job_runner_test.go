@@ -161,6 +161,36 @@ func TestDiagnosticEnabled(t *testing.T) {
 	}
 }
 
+func TestExecuteWritesVersionWithoutLoadingConfiguration(t *testing.T) {
+	for _, arguments := range [][]string{{"-v"}, {"-version"}, {"--version"}} {
+		var output bytes.Buffer
+		factory := &recordingApplicationFactory{application: &fakeApplication{}}
+		lookup := &countingLookup{}
+
+		err := execute(
+			arguments,
+			func() (string, error) { return "", errors.New("home directory accessed") },
+			errorFileReader{err: errors.New("configuration read")},
+			&output,
+			lookup,
+			factory.New,
+		)
+
+		if err != nil {
+			t.Fatalf("execute(%q) error = %v", arguments, err)
+		}
+		if got, want := output.String(), "tp "+applicationVersion+"\n"; got != want {
+			t.Errorf("execute(%q) output = %q, want %q", arguments, got, want)
+		}
+		if factory.calls != 0 {
+			t.Errorf("execute(%q) started application", arguments)
+		}
+		if lookup.calls != 0 {
+			t.Errorf("execute(%q) performed process lookup", arguments)
+		}
+	}
+}
+
 func TestConfigurationPathAcceptsDiagnosticFlag(t *testing.T) {
 	path, err := configurationPath([]string{"-diagnostic"}, func() (string, error) {
 		return "/test/home", nil

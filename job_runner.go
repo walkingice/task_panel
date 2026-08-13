@@ -14,7 +14,10 @@ import (
 	"task_panel/internal/ui"
 )
 
-const defaultConfigFile = ".config/task_panel/config.toml"
+const (
+	applicationVersion = "0.1.0"
+	defaultConfigFile  = ".config/task_panel/config.toml"
+)
 
 type application interface {
 	Run() (tea.Model, error)
@@ -42,15 +45,24 @@ func execute(
 	lookup diagnostic.Lookup,
 	newApplication applicationFactory,
 ) error {
-	configuration, err := loadConfiguration(arguments, homeDirectory, reader)
+	options, err := parseCommandLineOptions(arguments)
 	if err != nil {
 		return err
 	}
-	diagnosticMode, err := diagnosticEnabled(arguments)
+	if options.version {
+		_, err := fmt.Fprintf(output, "tp %s\n", applicationVersion)
+		return err
+	}
+
+	path, err := configurationPathFromOption(options.configFile, homeDirectory)
 	if err != nil {
 		return err
 	}
-	if diagnosticMode {
+	configuration, err := config.Load(path, reader, config.TOMLDecoder{})
+	if err != nil {
+		return err
+	}
+	if options.diagnostic {
 		return diagnostic.List(output, configuration.Processes, lookup)
 	}
 	return run(newApplication(configuration.Processes, lookup))
@@ -74,14 +86,8 @@ func newApplicationWithProgram(
 }
 
 func diagnosticEnabled(arguments []string) (bool, error) {
-	flags := flag.NewFlagSet("pm", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
-	flags.String("f", "", "configuration file path")
-	diagnostic := flags.Bool("diagnostic", false, "list process states without starting the TUI")
-	if err := flags.Parse(arguments); err != nil {
-		return false, fmt.Errorf("parse command-line flags: %w", err)
-	}
-	return *diagnostic, nil
+	options, err := parseCommandLineOptions(arguments)
+	return options.diagnostic, err
 }
 
 func run(program application) error {
@@ -108,15 +114,16 @@ func loadConfiguration(
 }
 
 func configurationPath(arguments []string, homeDirectory func() (string, error)) (string, error) {
-	flags := flag.NewFlagSet("pm", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
-	path := flags.String("f", "", "configuration file path")
-	flags.Bool("diagnostic", false, "list process states without starting the TUI")
-	if err := flags.Parse(arguments); err != nil {
-		return "", fmt.Errorf("parse command-line flags: %w", err)
+	options, err := parseCommandLineOptions(arguments)
+	if err != nil {
+		return "", err
 	}
-	if *path != "" {
-		return *path, nil
+	return configurationPathFromOption(options.configFile, homeDirectory)
+}
+
+func configurationPathFromOption(configFile string, homeDirectory func() (string, error)) (string, error) {
+	if configFile != "" {
+		return configFile, nil
 	}
 
 	home, err := homeDirectory()
@@ -124,4 +131,24 @@ func configurationPath(arguments []string, homeDirectory func() (string, error))
 		return "", fmt.Errorf("find home directory: %w", err)
 	}
 	return filepath.Join(home, defaultConfigFile), nil
+}
+
+type commandLineOptions struct {
+	configFile string
+	diagnostic bool
+	version    bool
+}
+
+func parseCommandLineOptions(arguments []string) (commandLineOptions, error) {
+	flags := flag.NewFlagSet("tp", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	options := commandLineOptions{}
+	flags.StringVar(&options.configFile, "f", "", "configuration file path")
+	flags.BoolVar(&options.diagnostic, "diagnostic", false, "list process states without starting the TUI")
+	flags.BoolVar(&options.version, "v", false, "print version and exit")
+	flags.BoolVar(&options.version, "version", false, "print version and exit")
+	if err := flags.Parse(arguments); err != nil {
+		return commandLineOptions{}, fmt.Errorf("parse command-line flags: %w", err)
+	}
+	return options, nil
 }
