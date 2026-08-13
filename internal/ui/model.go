@@ -23,14 +23,16 @@ type Controller interface {
 
 // Model is the Process Manager main-view state.
 type Model struct {
-	items        []item
-	lookup       Lookup
-	controller   Controller
-	selected     int
-	confirmation *confirmation
-	messages     []string
-	width        int
-	height       int
+	items                 []item
+	lookup                Lookup
+	controller            Controller
+	showStartConfirmation bool
+	showStopConfirmation  bool
+	selected              int
+	confirmation          *confirmation
+	messages              []string
+	width                 int
+	height                int
 }
 
 type item struct {
@@ -57,12 +59,31 @@ type controlFinishedMsg struct {
 }
 
 // New returns a main view populated with configured processes.
-func New(configured []config.Process, lookup Lookup, controller Controller) Model {
+func New(
+	configured []config.Process,
+	lookup Lookup,
+	controller Controller,
+	confirmations ...bool,
+) Model {
+	showStartConfirmation := true
+	showStopConfirmation := true
+	if len(confirmations) > 0 {
+		showStartConfirmation = confirmations[0]
+	}
+	if len(confirmations) > 1 {
+		showStopConfirmation = confirmations[1]
+	}
 	items := make([]item, len(configured))
 	for index, process := range configured {
 		items[index].configured = process
 	}
-	return Model{items: items, lookup: lookup, controller: controller}
+	return Model{
+		items:                 items,
+		lookup:                lookup,
+		controller:            controller,
+		showStartConfirmation: showStartConfirmation,
+		showStopConfirmation:  showStopConfirmation,
+	}
 }
 
 // Init starts asynchronous status checks for all configured processes.
@@ -123,7 +144,15 @@ func (model Model) updateKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "down", "j":
 		model.moveSelection(1)
 	case "enter":
-		model.openConfirmation()
+		action, ok := model.selectedAction()
+		if !ok {
+			return model, nil
+		}
+		if model.shouldConfirm(action) {
+			model.openConfirmation(action)
+			return model, nil
+		}
+		return model.startControl(confirmation{index: model.selected, action: action})
 	}
 	return model, nil
 }
@@ -135,20 +164,33 @@ func (model Model) updateConfirmation(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter", "y":
 		confirmation := *model.confirmation
 		model.confirmation = nil
-		model.items[confirmation.index].enabled = false
-		return model, controlProcess(confirmation, model.items[confirmation.index], model.controller)
+		return model.startControl(confirmation)
 	}
 	return model, nil
 }
 
-func (model *Model) openConfirmation() {
+func (model Model) startControl(confirmation confirmation) (tea.Model, tea.Cmd) {
+	model.items[confirmation.index].enabled = false
+	return model, controlProcess(confirmation, model.items[confirmation.index], model.controller)
+}
+
+func (model Model) selectedAction() (string, bool) {
 	if model.selected < 0 || model.selected >= len(model.items) || !model.items[model.selected].enabled {
-		return
+		return "", false
 	}
 	action := "start"
 	if model.items[model.selected].status.Running {
 		action = "stop"
 	}
+	return action, true
+}
+
+func (model Model) shouldConfirm(action string) bool {
+	return (action == "start" && model.showStartConfirmation) ||
+		(action == "stop" && model.showStopConfirmation)
+}
+
+func (model *Model) openConfirmation(action string) {
 	model.confirmation = &confirmation{index: model.selected, action: action}
 }
 

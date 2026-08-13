@@ -438,6 +438,56 @@ func TestModelConfirmsStopAndSupportsCancellation(t *testing.T) {
 	}
 }
 
+func TestModelSkipsDisabledConfirmations(t *testing.T) {
+	for _, test := range []struct {
+		name          string
+		running       bool
+		confirmations []bool
+		wantStarts    []string
+		wantStops     []string
+	}{
+		{
+			name:          "start",
+			confirmations: []bool{false, true},
+			wantStarts:    []string{"web"},
+		},
+		{
+			name:          "stop",
+			running:       true,
+			confirmations: []bool{true, false},
+			wantStops:     []string{"web"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			controller := &fakeController{}
+			model := New([]config.Process{{Name: "web", Start: "serve-web"}}, fakeLookup{}, controller, test.confirmations...)
+			model.items[0].enabled = true
+			model.items[0].status.Running = test.running
+
+			updated, command := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+			model = updated.(Model)
+			if model.confirmation != nil {
+				t.Fatalf("confirmation = %#v, want nil", model.confirmation)
+			}
+			if model.items[0].enabled {
+				t.Fatal("item remains enabled while its control operation is in flight")
+			}
+			if command == nil {
+				t.Fatal("Enter did not control process")
+			}
+			if _, ok := command().(controlFinishedMsg); !ok {
+				t.Fatal("Enter did not return a control command")
+			}
+			if got := controller.starts; !reflect.DeepEqual(got, test.wantStarts) {
+				t.Errorf("start calls = %v, want %v", got, test.wantStarts)
+			}
+			if got := controller.stops; !reflect.DeepEqual(got, test.wantStops) {
+				t.Errorf("stop calls = %v, want %v", got, test.wantStops)
+			}
+		})
+	}
+}
+
 func runningModel(controller Controller) Model {
 	model := New([]config.Process{{Name: "web", Start: "serve-web"}}, fakeLookup{}, controller)
 	model.items[0] = item{configured: config.Process{Name: "web", Start: "serve-web"}, enabled: true,
