@@ -25,16 +25,20 @@ func (app *fakeApplication) Run() (tea.Model, error) {
 }
 
 type recordingApplicationFactory struct {
-	application application
-	processes   []config.Process
-	lookup      diagnostic.Lookup
-	calls       int
+	application           application
+	processes             []config.Process
+	lookup                diagnostic.Lookup
+	showStartConfirmation bool
+	showStopConfirmation  bool
+	calls                 int
 }
 
-func (factory *recordingApplicationFactory) New(processes []config.Process, lookup diagnostic.Lookup) application {
+func (factory *recordingApplicationFactory) New(configuration config.Configuration, lookup diagnostic.Lookup) application {
 	factory.calls++
-	factory.processes = processes
+	factory.processes = configuration.Processes
 	factory.lookup = lookup
+	factory.showStartConfirmation = configuration.ShowStartConfirmation
+	factory.showStopConfirmation = configuration.ShowStopConfirmation
 	return factory.application
 }
 
@@ -68,7 +72,7 @@ func TestNewApplicationUsesAlternateScreen(t *testing.T) {
 		return tea.NewProgram(model, options...)
 	}
 
-	application := newApplicationWithProgram(nil, process.Lookup{}, newProgram)
+	application := newApplicationWithProgram(config.Configuration{}, process.Lookup{}, newProgram)
 	if err := run(application); err != nil {
 		t.Fatalf("run() error = %v, want nil", err)
 	}
@@ -304,8 +308,9 @@ func TestExecuteWritesDiagnosticListWithoutRunningProgram(t *testing.T) {
 	}
 }
 
-func TestExecuteRunsProgramWhenDiagnosticIsDisabled(t *testing.T) {
-	reader := &testFileReader{data: []byte("[[process]]\nname = 'web'\nstart = 'serve-web'\n")}
+func TestExecutePassesConfirmationOptionsToApplication(t *testing.T) {
+	reader := &testFileReader{data: []byte("show_start_confirmation = false\nshow_stop_confirmation = false\n" +
+		"[[process]]\nname = 'web'\nstart = 'serve-web'\n")}
 	lookup := &countingLookup{}
 	program := &fakeApplication{}
 	factory := &recordingApplicationFactory{application: program}
@@ -336,6 +341,12 @@ func TestExecuteRunsProgramWhenDiagnosticIsDisabled(t *testing.T) {
 	}
 	if factory.lookup != lookup {
 		t.Error("factory did not receive lookup")
+	}
+	if factory.showStartConfirmation {
+		t.Error("factory received start confirmation enabled, want disabled")
+	}
+	if factory.showStopConfirmation {
+		t.Error("factory received stop confirmation enabled, want disabled")
 	}
 }
 

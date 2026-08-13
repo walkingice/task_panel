@@ -33,7 +33,7 @@ type application interface {
 	Run() (tea.Model, error)
 }
 
-type applicationFactory func([]config.Process, diagnostic.Lookup) application
+type applicationFactory func(config.Configuration, diagnostic.Lookup) application
 
 type programFactory func(tea.Model, ...tea.ProgramOption) *tea.Program
 
@@ -78,15 +78,15 @@ func execute(
 	if options.diagnostic {
 		return diagnostic.List(output, configuration.Processes, lookup)
 	}
-	return run(newApplication(configuration.Processes, lookup))
+	return run(newApplication(configuration, lookup))
 }
 
-func newApplication(processes []config.Process, lookup diagnostic.Lookup) application {
-	return newApplicationWithProgram(processes, lookup, tea.NewProgram)
+func newApplication(configuration config.Configuration, lookup diagnostic.Lookup) application {
+	return newApplicationWithProgram(configuration, lookup, tea.NewProgram)
 }
 
 func newApplicationWithProgram(
-	processes []config.Process,
+	configuration config.Configuration,
 	lookup diagnostic.Lookup,
 	newProgram programFactory,
 ) application {
@@ -95,7 +95,13 @@ func newApplicationWithProgram(
 		Launcher: process.SystemLauncher{},
 		Signaler: process.SystemSignaler{},
 	}
-	return newProgram(ui.New(processes, lookup, controller), tea.WithAltScreen())
+	return newProgram(ui.New(
+		configuration.Processes,
+		lookup,
+		controller,
+		configuration.ShowStartConfirmation,
+		configuration.ShowStopConfirmation,
+	), tea.WithAltScreen())
 }
 
 func diagnosticEnabled(arguments []string) (bool, error) {
