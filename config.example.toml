@@ -36,7 +36,11 @@ start = "sh /path/to/other.sh"
 id = "pgrep -f tmux"
 
 # Fourth process.
-# This is a Docker container.
+# This is a Docker container. Use `find` to query the container state instead
+# of matching the `start` command, because Docker runs the container elsewhere.
+# PM retries this check briefly after a start request while Docker creates the
+# container. Use a Docker health check here instead when service readiness,
+# rather than container liveness, is required.
 [[process]]
 name = "docker container"
 start = "docker start myapp"
