@@ -1,0 +1,30 @@
+version: 2
+
+project_name: tp
+
+builds:
+  - id: tp
+    main: .
+    binary: tp
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - ids:
+      - tp
+    formats:
+      - tar.gz
+    files:
+      - none*
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
