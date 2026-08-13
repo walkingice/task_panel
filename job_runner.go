@@ -17,6 +17,16 @@ import (
 const (
 	applicationVersion = "0.1.0"
 	defaultConfigFile  = ".config/task_panel/config.toml"
+	usageText          = `Usage: tp [options]
+
+Manage configured processes.
+
+Options:
+  -f <path>        configuration file path
+  -diagnostic      list process states without starting the TUI
+  -v, -version     print version and exit
+  -h, -help        show this help message
+`
 )
 
 type application interface {
@@ -48,6 +58,9 @@ func execute(
 	options, err := parseCommandLineOptions(arguments)
 	if err != nil {
 		return err
+	}
+	if options.help {
+		return writeUsage(output)
 	}
 	if options.version {
 		_, err := fmt.Fprintf(output, "tp %s\n", applicationVersion)
@@ -136,19 +149,34 @@ func configurationPathFromOption(configFile string, homeDirectory func() (string
 type commandLineOptions struct {
 	configFile string
 	diagnostic bool
+	help       bool
 	version    bool
 }
 
 func parseCommandLineOptions(arguments []string) (commandLineOptions, error) {
+	if len(arguments) == 1 && arguments[0] == "help" {
+		return commandLineOptions{help: true}, nil
+	}
+
 	flags := flag.NewFlagSet("tp", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	options := commandLineOptions{}
 	flags.StringVar(&options.configFile, "f", "", "configuration file path")
 	flags.BoolVar(&options.diagnostic, "diagnostic", false, "list process states without starting the TUI")
+	flags.BoolVar(&options.help, "h", false, "show this help message")
+	flags.BoolVar(&options.help, "help", false, "show this help message")
 	flags.BoolVar(&options.version, "v", false, "print version and exit")
 	flags.BoolVar(&options.version, "version", false, "print version and exit")
 	if err := flags.Parse(arguments); err != nil {
 		return commandLineOptions{}, fmt.Errorf("parse command-line flags: %w", err)
 	}
+	if len(flags.Args()) != 0 {
+		return commandLineOptions{}, fmt.Errorf("unexpected argument: %q", flags.Arg(0))
+	}
 	return options, nil
+}
+
+func writeUsage(output io.Writer) error {
+	_, err := fmt.Fprint(output, usageText)
+	return err
 }

@@ -13,7 +13,8 @@ them quickly.
 Go modules use [`go.mod`](go.mod) for the module path, Go version, and
 dependencies. They do not define standard fields for a project description or
 release version. Releases should use a Git tag matching `applicationVersion`.
-Run `tp -v` to print the current version.
+Run `tp --help` or `tp help` to show usage. Run `tp -v` to print the current
+version.
 
 ## Development
 

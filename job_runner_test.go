@@ -191,6 +191,43 @@ func TestExecuteWritesVersionWithoutLoadingConfiguration(t *testing.T) {
 	}
 }
 
+func TestExecuteWritesUsageWithoutLoadingConfiguration(t *testing.T) {
+	for _, arguments := range [][]string{{"-h"}, {"--help"}, {"help"}, {"-h", "-v"}} {
+		var output bytes.Buffer
+		factory := &recordingApplicationFactory{application: &fakeApplication{}}
+		lookup := &countingLookup{}
+
+		err := execute(
+			arguments,
+			func() (string, error) { return "", errors.New("home directory accessed") },
+			errorFileReader{err: errors.New("configuration read")},
+			&output,
+			lookup,
+			factory.New,
+		)
+
+		if err != nil {
+			t.Fatalf("execute(%q) error = %v", arguments, err)
+		}
+		if got, want := output.String(), usageText; got != want {
+			t.Errorf("execute(%q) output = %q, want %q", arguments, got, want)
+		}
+		if factory.calls != 0 {
+			t.Errorf("execute(%q) started application", arguments)
+		}
+		if lookup.calls != 0 {
+			t.Errorf("execute(%q) performed process lookup", arguments)
+		}
+	}
+}
+
+func TestParseCommandLineOptionsRejectsUnexpectedArgument(t *testing.T) {
+	_, err := parseCommandLineOptions([]string{"unexpected"})
+	if err == nil {
+		t.Fatal("parseCommandLineOptions() error = nil, want unexpected argument error")
+	}
+}
+
 func TestConfigurationPathAcceptsDiagnosticFlag(t *testing.T) {
 	path, err := configurationPath([]string{"-diagnostic"}, func() (string, error) {
 		return "/test/home", nil
