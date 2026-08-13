@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"task_panel/internal/config"
@@ -95,10 +96,11 @@ func newApplicationWithProgram(
 		Launcher: process.SystemLauncher{},
 		Signaler: process.SystemSignaler{},
 	}
-	return newProgram(ui.New(
+	return newProgram(ui.NewWithStartStatusTimeout(
 		configuration.Processes,
 		lookup,
 		controller,
+		time.Duration(configuration.StartStatusTimeoutSeconds)*time.Second,
 		configuration.ShowStartConfirmation,
 		configuration.ShowStopConfirmation,
 	), tea.WithAltScreen())

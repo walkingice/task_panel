@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	startStatusRetries       = 10
-	startStatusRetryInterval = 500 * time.Millisecond
+	startStatusRetryInterval  = 500 * time.Millisecond
+	defaultStartStatusTimeout = 5 * time.Second
 )
 
 // Lookup checks the status of a configured process.
@@ -34,6 +34,7 @@ type Model struct {
 	controller            Controller
 	showStartConfirmation bool
 	showStopConfirmation  bool
+	startStatusRetries    int
 	selected              int
 	confirmation          *confirmation
 	messages              []string
@@ -77,6 +78,22 @@ func New(
 	controller Controller,
 	confirmations ...bool,
 ) Model {
+	return NewWithStartStatusTimeout(
+		configured, lookup, controller, defaultStartStatusTimeout, confirmations...,
+	)
+}
+
+// NewWithStartStatusTimeout returns a main view with a custom start timeout.
+func NewWithStartStatusTimeout(
+	configured []config.Process,
+	lookup Lookup,
+	controller Controller,
+	startStatusTimeout time.Duration,
+	confirmations ...bool,
+) Model {
+	if startStatusTimeout <= 0 {
+		startStatusTimeout = defaultStartStatusTimeout
+	}
 	showStartConfirmation := true
 	showStopConfirmation := true
 	if len(confirmations) > 0 {
@@ -95,6 +112,7 @@ func New(
 		controller:            controller,
 		showStartConfirmation: showStartConfirmation,
 		showStopConfirmation:  showStopConfirmation,
+		startStatusRetries:    int(startStatusTimeout / startStatusRetryInterval),
 	}
 }
 
@@ -162,7 +180,7 @@ func (model Model) applyStatus(message statusCheckedMsg) (tea.Model, tea.Cmd) {
 		return model, nil
 	}
 	if message.startAttempt >= 0 && !message.status.Running {
-		if message.startAttempt < startStatusRetries {
+		if message.startAttempt < model.startStatusRetries {
 			return model, waitForStartStatus(message.index, message.startAttempt+1)
 		}
 		name := model.items[message.index].configured.Name
