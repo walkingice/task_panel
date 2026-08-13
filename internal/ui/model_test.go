@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -454,14 +455,16 @@ func TestModelRetriesStartStatusUntilProcessRuns(t *testing.T) {
 }
 
 func TestModelReportsStartTimeoutAfterStatusRetries(t *testing.T) {
-	lookup := &sequenceLookup{statuses: make([]process.Status, startStatusRetries+1)}
-	model := New([]config.Process{{Name: "web", Start: "serve-web"}}, lookup, nil)
+	lookup := &sequenceLookup{statuses: make([]process.Status, 3)}
+	model := NewWithStartStatusTimeout(
+		[]config.Process{{Name: "web", Start: "serve-web"}}, lookup, nil, time.Second,
+	)
 
 	check := checkStartStatus(0, model.items[0].configured, lookup, 0)
-	for attempt := 0; attempt <= startStatusRetries; attempt++ {
+	for attempt := 0; attempt <= model.startStatusRetries; attempt++ {
 		updated, retry := model.Update(check())
 		model = updated.(Model)
-		if attempt == startStatusRetries {
+		if attempt == model.startStatusRetries {
 			if retry != nil {
 				t.Fatal("timed-out start scheduled another retry")
 			}
@@ -480,7 +483,7 @@ func TestModelReportsStartTimeoutAfterStatusRetries(t *testing.T) {
 	if got := model.View(); !strings.Contains(got, "web: start timed out") {
 		t.Errorf("View() = %q, want timeout message", got)
 	}
-	if got, want := lookup.calls, startStatusRetries+1; got != want {
+	if got, want := lookup.calls, model.startStatusRetries+1; got != want {
 		t.Errorf("status checks = %d, want %d", got, want)
 	}
 }

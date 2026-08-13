@@ -34,23 +34,26 @@ func TestTOMLDecoderUnmarshalsProcess(t *testing.T) {
 
 func TestLoadDefaultsAndReadsConfirmationOptions(t *testing.T) {
 	for _, test := range []struct {
-		name      string
-		data      string
-		wantStart bool
-		wantStop  bool
+		name        string
+		data        string
+		wantStart   bool
+		wantStop    bool
+		wantTimeout int
 	}{
 		{
-			name:      "defaults to confirmations enabled",
-			data:      "[[process]]\nname = 'web'\nstart = 'serve-web'\n",
-			wantStart: true,
-			wantStop:  true,
+			name:        "defaults to confirmations enabled",
+			data:        "[[process]]\nname = 'web'\nstart = 'serve-web'\n",
+			wantStart:   true,
+			wantStop:    true,
+			wantTimeout: DefaultStartStatusTimeoutSeconds,
 		},
 		{
 			name: "reads disabled confirmations",
-			data: "show_start_confirmation = false\nshow_stop_confirmation = false\n" +
+			data: "show_start_confirmation = false\nshow_stop_confirmation = false\nstart_status_timeout_seconds = 8\n" +
 				"[[process]]\nname = 'web'\nstart = 'serve-web'\n",
-			wantStart: false,
-			wantStop:  false,
+			wantStart:   false,
+			wantStop:    false,
+			wantTimeout: 8,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -63,6 +66,9 @@ func TestLoadDefaultsAndReadsConfirmationOptions(t *testing.T) {
 			}
 			if configuration.ShowStopConfirmation != test.wantStop {
 				t.Errorf("ShowStopConfirmation = %t, want %t", configuration.ShowStopConfirmation, test.wantStop)
+			}
+			if configuration.StartStatusTimeoutSeconds != test.wantTimeout {
+				t.Errorf("StartStatusTimeoutSeconds = %d, want %d", configuration.StartStatusTimeoutSeconds, test.wantTimeout)
 			}
 		})
 	}
@@ -111,6 +117,7 @@ func TestValidateRejectsInvalidProcesses(t *testing.T) {
 	}{
 		{"no processes", Configuration{}, "no process entries"},
 		{"missing name", Configuration{Processes: []Process{{Start: "run"}}}, "process 1: missing name"},
+		{"non-positive start status timeout", Configuration{StartStatusTimeoutSeconds: 0, Processes: []Process{{Name: "web", Start: "run"}}}, "start status timeout must be positive"},
 		{"missing start", Configuration{Processes: []Process{{Name: "web"}}}, "process 1: missing start"},
 		{"find without stop", Configuration{Processes: []Process{{Name: "web", Start: "run", Find: "pgrep web"}}}, "process 1: find requires stop"},
 	} {
