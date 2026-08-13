@@ -18,6 +18,12 @@ type fakeLookup struct {
 	errors   map[string]error
 }
 
+type sequenceLookup struct {
+	statuses []process.Status
+	errors   []error
+	calls    int
+}
+
 type fakeController struct {
 	starts []string
 	stops  []string
@@ -36,6 +42,19 @@ func (controller *fakeController) Stop(configured config.Process, _ process.Stat
 
 func (lookup fakeLookup) Check(configured config.Process) (process.Status, error) {
 	return lookup.statuses[configured.Name], lookup.errors[configured.Name]
+}
+
+func (lookup *sequenceLookup) Check(config.Process) (process.Status, error) {
+	index := lookup.calls
+	lookup.calls++
+	if index >= len(lookup.statuses) {
+		return process.Status{}, nil
+	}
+	var err error
+	if index < len(lookup.errors) {
+		err = lookup.errors[index]
+	}
+	return lookup.statuses[index], err
 }
 
 func TestModelInitializesDisabledItemsAndChecksStatuses(t *testing.T) {
@@ -395,6 +414,88 @@ func TestModelConfirmsStartAndRefreshesStatus(t *testing.T) {
 	}
 	if got := model.View(); !strings.Contains(got, "web: start requested") {
 		t.Errorf("View() = %q, want start message", got)
+	}
+}
+
+func TestModelRetriesStartStatusUntilProcessRuns(t *testing.T) {
+	lookup := &sequenceLookup{statuses: []process.Status{{}, {}, {Running: true}}}
+	controller := &fakeController{}
+	model := New([]config.Process{{Name: "web", Start: "serve-web"}}, lookup, controller, false, false)
+	model.items[0].enabled = true
+
+	updated, start := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updated.(Model)
+	updated, check := model.Update(start())
+	model = updated.(Model)
+	updated, retry := model.Update(check())
+	model = updated.(Model)
+	if model.items[0].enabled || retry == nil {
+		t.Fatal("stopped process was not kept disabled for a retry")
+	}
+
+	updated, check = model.Update(startRetryMsg{index: 0, attempt: 1})
+	model = updated.(Model)
+	updated, retry = model.Update(check())
+	model = updated.(Model)
+	if model.items[0].enabled || retry == nil {
+		t.Fatal("second stopped check did not schedule a retry")
+	}
+
+	updated, check = model.Update(startRetryMsg{index: 0, attempt: 2})
+	model = updated.(Model)
+	updated, retry = model.Update(check())
+	model = updated.(Model)
+	if retry != nil || !model.items[0].enabled || !model.items[0].status.Running {
+		t.Fatalf("running process = %#v, want enabled running item", model.items[0])
+	}
+	if lookup.calls != 3 {
+		t.Errorf("status checks = %d, want 3", lookup.calls)
+	}
+}
+
+func TestModelReportsStartTimeoutAfterStatusRetries(t *testing.T) {
+	lookup := &sequenceLookup{statuses: make([]process.Status, startStatusRetries+1)}
+	model := New([]config.Process{{Name: "web", Start: "serve-web"}}, lookup, nil)
+
+	check := checkStartStatus(0, model.items[0].configured, lookup, 0)
+	for attempt := 0; attempt <= startStatusRetries; attempt++ {
+		updated, retry := model.Update(check())
+		model = updated.(Model)
+		if attempt == startStatusRetries {
+			if retry != nil {
+				t.Fatal("timed-out start scheduled another retry")
+			}
+			break
+		}
+		if retry == nil {
+			t.Fatal("stopped process did not schedule a retry")
+		}
+		updated, check = model.Update(startRetryMsg{index: 0, attempt: attempt + 1})
+		model = updated.(Model)
+	}
+
+	if !model.items[0].enabled || model.items[0].status.Running {
+		t.Fatalf("timed-out process = %#v, want enabled stopped item", model.items[0])
+	}
+	if got := model.View(); !strings.Contains(got, "web: start timed out") {
+		t.Errorf("View() = %q, want timeout message", got)
+	}
+	if got, want := lookup.calls, startStatusRetries+1; got != want {
+		t.Errorf("status checks = %d, want %d", got, want)
+	}
+}
+
+func TestModelDoesNotRetryStartStatusError(t *testing.T) {
+	lookupError := errors.New("docker inspect failed")
+	model := New([]config.Process{{Name: "web", Start: "serve-web"}}, fakeLookup{}, nil)
+
+	updated, retry := model.Update(statusCheckedMsg{index: 0, err: lookupError, startAttempt: 0})
+	model = updated.(Model)
+	if retry != nil || !model.items[0].enabled {
+		t.Fatal("status error left process disabled or scheduled a retry")
+	}
+	if got := model.View(); !strings.Contains(got, "web: docker inspect failed") {
+		t.Errorf("View() = %q, want lookup error", got)
 	}
 }
 
