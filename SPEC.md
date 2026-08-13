@@ -29,6 +29,7 @@
 
 ## Implementation
 
+- Version: defined by `applicationVersion` in `task_panel.go`
 - PM uses `bubbletea` to build the TUI.
 - PM uses `gopsutil` to inspect process command lines.
 
