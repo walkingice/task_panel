@@ -42,7 +42,7 @@ func TestModelInitializesDisabledItemsAndChecksStatuses(t *testing.T) {
 	model := New([]config.Process{{Name: "web"}, {Name: "worker"}}, fakeLookup{
 		statuses: map[string]process.Status{"web": {Running: true, PIDs: []int32{123}}},
 	}, nil)
-	if got := model.View(); !strings.Contains(got, "Processes") ||
+	if got := model.View(); !strings.Contains(got, "Tasks") ||
 		!strings.Contains(got, ">   web") || !strings.Contains(got, "checking") {
 		t.Fatalf("initial View() = %q, want disabled items", got)
 	}
@@ -121,7 +121,7 @@ func TestModelUsesTerminalWidthForDashboard(t *testing.T) {
 	if model.width != 72 {
 		t.Errorf("width = %d, want 72", model.width)
 	}
-	if got := model.View(); !strings.Contains(got, "┌ Processes ") ||
+	if got := model.View(); !strings.Contains(got, "┌ Tasks ") ||
 		!strings.Contains(got, " ↑/k ↓/j navigate") {
 		t.Errorf("View() = %q, want dashboard framing and footer", got)
 	}

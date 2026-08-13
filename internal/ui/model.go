@@ -305,7 +305,7 @@ func renderProcessTable(items []item, selected, width, height int) string {
 	if selected < visibleItems {
 		selectedLine = selected + 1
 	}
-	view := renderBox("Processes", lines, width, selectedLine, height-2, 1)
+	view := renderBox("Tasks", lines, width, selectedLine, height-2, 1)
 	for _, item := range items {
 		status := statusLabel(item)
 		view = strings.Replace(view, pad(status, 11), renderStatusCell(status), 1)
