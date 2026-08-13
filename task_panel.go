@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	applicationVersion = "0.2.0"
+	applicationVersion = "0.3.0"
 	defaultConfigFile  = ".config/task_panel/config.toml"
 	usageText          = `Usage: tp [options]
 

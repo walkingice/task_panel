@@ -166,6 +166,12 @@ func TestDiagnosticEnabled(t *testing.T) {
 }
 
 func TestExecuteWritesVersionWithoutLoadingConfiguration(t *testing.T) {
+	const wantVersion = "0.3.0"
+
+	if applicationVersion != wantVersion {
+		t.Fatalf("applicationVersion = %q, want %q", applicationVersion, wantVersion)
+	}
+
 	for _, arguments := range [][]string{{"-v"}, {"-version"}, {"--version"}} {
 		var output bytes.Buffer
 		factory := &recordingApplicationFactory{application: &fakeApplication{}}
@@ -183,7 +189,7 @@ func TestExecuteWritesVersionWithoutLoadingConfiguration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("execute(%q) error = %v", arguments, err)
 		}
-		if got, want := output.String(), "tp "+applicationVersion+"\n"; got != want {
+		if got, want := output.String(), "tp "+wantVersion+"\n"; got != want {
 			t.Errorf("execute(%q) output = %q, want %q", arguments, got, want)
 		}
 		if factory.calls != 0 {
