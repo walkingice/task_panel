@@ -8,6 +8,12 @@
 # `stop` is the command that stops the process. If omitted, PM sends a kill
 # signal to each matched process.
 # Commands are executed by the system shell and must suit the target platform.
+# `show_start_confirmation` and `show_stop_confirmation` control whether PM
+# asks for confirmation before starting or stopping a process. Both default to
+# true when omitted.
+
+show_start_confirmation = true
+show_stop_confirmation = true
 
 # First process.
 [[process]]

@@ -16,7 +16,9 @@
 - Users can move the cursor with the Up and Down arrow keys or the Vim-style
   `j` and `k` keys.
 - Pressing Enter starts or stops a process after a confirmation modal prevents
-  accidental actions.
+  accidental actions. The `show_start_confirmation` and
+  `show_stop_confirmation` configuration options can independently disable
+  that modal; both default to true.
 - In a confirmation modal, Enter or `y` confirms the action. Esc, `n`, or `q`
   cancels it without changing the process.
 - A persistent panel on the right displays start, stop, error, and debugging

@@ -32,6 +32,42 @@ func TestTOMLDecoderUnmarshalsProcess(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultsAndReadsConfirmationOptions(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		data      string
+		wantStart bool
+		wantStop  bool
+	}{
+		{
+			name:      "defaults to confirmations enabled",
+			data:      "[[process]]\nname = 'web'\nstart = 'serve-web'\n",
+			wantStart: true,
+			wantStop:  true,
+		},
+		{
+			name: "reads disabled confirmations",
+			data: "show_start_confirmation = false\nshow_stop_confirmation = false\n" +
+				"[[process]]\nname = 'web'\nstart = 'serve-web'\n",
+			wantStart: false,
+			wantStop:  false,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			configuration, err := Load("test.toml", &fakeFileReader{data: []byte(test.data)}, TOMLDecoder{})
+			if err != nil {
+				t.Fatalf("Load() error = %v", err)
+			}
+			if configuration.ShowStartConfirmation != test.wantStart {
+				t.Errorf("ShowStartConfirmation = %t, want %t", configuration.ShowStartConfirmation, test.wantStart)
+			}
+			if configuration.ShowStopConfirmation != test.wantStop {
+				t.Errorf("ShowStopConfirmation = %t, want %t", configuration.ShowStopConfirmation, test.wantStop)
+			}
+		})
+	}
+}
+
 func TestLoadReadsAndValidatesConfiguration(t *testing.T) {
 	reader := &fakeFileReader{data: []byte("[[process]]\nname = 'web'\nstart = 'serve-web'\n")}
 

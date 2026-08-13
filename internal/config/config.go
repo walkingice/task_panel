@@ -11,7 +11,9 @@ import (
 
 // Configuration contains all processes managed by Process Manager.
 type Configuration struct {
-	Processes []Process `toml:"process"`
+	Processes             []Process `toml:"process"`
+	ShowStartConfirmation bool      `toml:"show_start_confirmation"`
+	ShowStopConfirmation  bool      `toml:"show_stop_confirmation"`
 }
 
 // Process describes one managed process from the configuration file.
@@ -49,7 +51,10 @@ func Load(path string, reader FileReader, decoder Decoder) (Configuration, error
 		return Configuration{}, fmt.Errorf("read configuration %q: %w", path, err)
 	}
 
-	var configuration Configuration
+	configuration := Configuration{
+		ShowStartConfirmation: true,
+		ShowStopConfirmation:  true,
+	}
 	if err := decoder.Unmarshal(data, &configuration); err != nil {
 		return Configuration{}, fmt.Errorf("parse configuration %q: %w", path, err)
 	}
