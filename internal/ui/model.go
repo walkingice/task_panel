@@ -4,10 +4,16 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"task_panel/internal/config"
 	"task_panel/internal/process"
+)
+
+const (
+	startStatusRetries       = 10
+	startStatusRetryInterval = 500 * time.Millisecond
 )
 
 // Lookup checks the status of a configured process.
@@ -42,9 +48,15 @@ type item struct {
 }
 
 type statusCheckedMsg struct {
-	index  int
-	status process.Status
-	err    error
+	index        int
+	status       process.Status
+	err          error
+	startAttempt int
+}
+
+type startRetryMsg struct {
+	index   int
+	attempt int
 }
 
 type confirmation struct {
@@ -96,17 +108,36 @@ func (model Model) Init() tea.Cmd {
 }
 
 func checkStatus(index int, configured config.Process, lookup Lookup) tea.Cmd {
+	return checkStatusAttempt(index, configured, lookup, -1)
+}
+
+func checkStartStatus(index int, configured config.Process, lookup Lookup, attempt int) tea.Cmd {
+	return checkStatusAttempt(index, configured, lookup, attempt)
+}
+
+func checkStatusAttempt(index int, configured config.Process, lookup Lookup, startAttempt int) tea.Cmd {
 	return func() tea.Msg {
 		status, err := lookup.Check(configured)
-		return statusCheckedMsg{index: index, status: status, err: err}
+		return statusCheckedMsg{index: index, status: status, err: err, startAttempt: startAttempt}
 	}
+}
+
+func waitForStartStatus(index, attempt int) tea.Cmd {
+	return tea.Tick(startStatusRetryInterval, func(time.Time) tea.Msg {
+		return startRetryMsg{index: index, attempt: attempt}
+	})
 }
 
 // Update handles status updates, navigation, and application exit keys.
 func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch message := message.(type) {
 	case statusCheckedMsg:
-		return model.applyStatus(message), nil
+		return model.applyStatus(message)
+	case startRetryMsg:
+		if message.index < 0 || message.index >= len(model.items) || model.items[message.index].enabled {
+			return model, nil
+		}
+		return model, checkStartStatus(message.index, model.items[message.index].configured, model.lookup, message.attempt)
 	case controlFinishedMsg:
 		return model.applyControl(message)
 	case tea.WindowSizeMsg:
@@ -119,17 +150,26 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	return model, nil
 }
 
-func (model Model) applyStatus(message statusCheckedMsg) Model {
+func (model Model) applyStatus(message statusCheckedMsg) (tea.Model, tea.Cmd) {
 	if message.index < 0 || message.index >= len(model.items) {
-		return model
+		return model, nil
 	}
 	model.items[message.index].status = message.status
-	model.items[message.index].enabled = true
 	if message.err != nil {
 		name := model.items[message.index].configured.Name
 		model.messages = append(model.messages, fmt.Sprintf("%s: %v", name, message.err))
+		model.items[message.index].enabled = true
+		return model, nil
 	}
-	return model
+	if message.startAttempt >= 0 && !message.status.Running {
+		if message.startAttempt < startStatusRetries {
+			return model, waitForStartStatus(message.index, message.startAttempt+1)
+		}
+		name := model.items[message.index].configured.Name
+		model.messages = append(model.messages, fmt.Sprintf("%s: start timed out", name))
+	}
+	model.items[message.index].enabled = true
+	return model, nil
 }
 
 func (model Model) updateKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -221,7 +261,10 @@ func (model Model) applyControl(message controlFinishedMsg) (tea.Model, tea.Cmd)
 		model.messages = append(model.messages, fmt.Sprintf("%s: %s requested", name, message.action))
 	}
 	model.items[message.index].enabled = false
-	return model, checkStatus(message.index, model.items[message.index].configured, model.lookup)
+	if message.err != nil || message.action != "start" {
+		return model, checkStatus(message.index, model.items[message.index].configured, model.lookup)
+	}
+	return model, checkStartStatus(message.index, model.items[message.index].configured, model.lookup, 0)
 }
 
 func (model *Model) moveSelection(change int) {
