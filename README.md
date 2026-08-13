@@ -7,7 +7,7 @@ them quickly.
 ## Project metadata
 
 - Module: `task_panel`
-- Version: defined by `applicationVersion` in `job_runner.go`
+- Version: defined by `applicationVersion` in `task_panel.go`
 - Go: `1.26.0`
 
 Go modules use [`go.mod`](go.mod) for the module path, Go version, and
