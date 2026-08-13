@@ -12,7 +12,7 @@ quickly start or stop processes through the interface.
 
 ## Layout
 
-- `process_manager.go`: application entry point.
+- `task_panel.go`: application entry point.
 
 Keep UI behavior in the relevant view package. Keep input and operating-system
 integration isolated behind their existing package boundaries.

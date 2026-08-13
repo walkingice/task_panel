@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	"process_manager/internal/config"
+	"task_panel/internal/config"
 )
 
 // Launcher starts configured commands without waiting for them to finish.

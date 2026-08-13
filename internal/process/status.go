@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"process_manager/internal/config"
+	"task_panel/internal/config"
 )
 
 // Shell runs configured commands through the operating system shell.

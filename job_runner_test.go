@@ -8,10 +8,10 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"process_manager/internal/config"
-	"process_manager/internal/diagnostic"
-	"process_manager/internal/process"
-	"process_manager/internal/ui"
+	"task_panel/internal/config"
+	"task_panel/internal/diagnostic"
+	"task_panel/internal/process"
+	"task_panel/internal/ui"
 )
 
 type fakeApplication struct {

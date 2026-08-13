@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"process_manager/internal/config"
-	"process_manager/internal/diagnostic"
-	"process_manager/internal/process"
-	"process_manager/internal/ui"
+	"task_panel/internal/config"
+	"task_panel/internal/diagnostic"
+	"task_panel/internal/process"
+	"task_panel/internal/ui"
 )
 
-const defaultConfigFile = ".config/jchu/process_manager.toml"
+const defaultConfigFile = ".config/task_panel/config.toml"
 
 type application interface {
 	Run() (tea.Model, error)

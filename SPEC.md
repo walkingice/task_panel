@@ -1,10 +1,10 @@
 ## Config
 
-- By default, PM loads `~/.config/jchu/process_manager.toml`. The configuration
+- By default, PM loads `~/.config/task_panel/config.toml`. The configuration
   file can be changed with the `-f` parameter.
 - If the file does not exist, is invalid, or contains no process entries, PM
   displays an appropriate message and exits.
-- The configuration format is defined in `process_manager.toml`.
+- The configuration format is defined in `config.example.toml`.
 
 ## UI
 

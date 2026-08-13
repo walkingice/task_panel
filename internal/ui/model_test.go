@@ -9,8 +9,8 @@ import (
 	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"process_manager/internal/config"
-	"process_manager/internal/process"
+	"task_panel/internal/config"
+	"task_panel/internal/process"
 )
 
 type fakeLookup struct {

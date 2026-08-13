@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"process_manager/internal/config"
-	"process_manager/internal/process"
+	"task_panel/internal/config"
+	"task_panel/internal/process"
 )
 
 // Lookup checks the running status of a configured process.

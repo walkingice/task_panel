@@ -1,4 +1,4 @@
-module process_manager
+module task_panel
 
 go 1.26.0
 

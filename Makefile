@@ -1,7 +1,7 @@
 .PHONY: fmt test build all
 
 all:
-	go build -o pm .
+	go build -o tp .
 
 fmt:
 	go fmt ./...

@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"testing"
 
-	"process_manager/internal/config"
+	"task_panel/internal/config"
 )
 
 type fakeShell struct {
