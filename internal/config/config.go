@@ -11,10 +11,13 @@ import (
 
 // Configuration contains all processes managed by Process Manager.
 type Configuration struct {
-	Processes             []Process `toml:"process"`
-	ShowStartConfirmation bool      `toml:"show_start_confirmation"`
-	ShowStopConfirmation  bool      `toml:"show_stop_confirmation"`
+	Processes                 []Process `toml:"process"`
+	ShowStartConfirmation     bool      `toml:"show_start_confirmation"`
+	ShowStopConfirmation      bool      `toml:"show_stop_confirmation"`
+	StartStatusTimeoutSeconds int       `toml:"start_status_timeout_seconds"`
 }
+
+const DefaultStartStatusTimeoutSeconds = 5
 
 // Process describes one managed process from the configuration file.
 type Process struct {
@@ -52,8 +55,9 @@ func Load(path string, reader FileReader, decoder Decoder) (Configuration, error
 	}
 
 	configuration := Configuration{
-		ShowStartConfirmation: true,
-		ShowStopConfirmation:  true,
+		ShowStartConfirmation:     true,
+		ShowStopConfirmation:      true,
+		StartStatusTimeoutSeconds: DefaultStartStatusTimeoutSeconds,
 	}
 	if err := decoder.Unmarshal(data, &configuration); err != nil {
 		return Configuration{}, fmt.Errorf("parse configuration %q: %w", path, err)
@@ -79,6 +83,9 @@ func (configuration Configuration) Validate() error {
 		if strings.TrimSpace(process.Find) != "" && strings.TrimSpace(process.Stop) == "" {
 			return fmt.Errorf("process %d: find requires stop", index+1)
 		}
+	}
+	if configuration.StartStatusTimeoutSeconds <= 0 {
+		return errors.New("start status timeout must be positive")
 	}
 	return nil
 }

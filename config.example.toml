@@ -11,9 +11,13 @@
 # `show_start_confirmation` and `show_stop_confirmation` control whether PM
 # asks for confirmation before starting or stopping a process. Both default to
 # true when omitted.
+# `start_status_timeout_seconds` is how long PM retries status checks after a
+# successful start request. It defaults to 5 seconds when omitted and must be
+# a positive whole number of seconds.
 
 show_start_confirmation = true
 show_stop_confirmation = true
+start_status_timeout_seconds = 5
 
 # First process.
 [[process]]
@@ -38,8 +42,9 @@ id = "pgrep -f tmux"
 # Fourth process.
 # This is a Docker container. Use `find` to query the container state instead
 # of matching the `start` command, because Docker runs the container elsewhere.
-# PM retries this check briefly after a start request while Docker creates the
-# container. Use a Docker health check here instead when service readiness,
+# PM retries this check for `start_status_timeout_seconds` after a start
+# request while Docker creates the container. Use a Docker health check here
+# instead when service readiness,
 # rather than container liveness, is required.
 [[process]]
 name = "docker container"

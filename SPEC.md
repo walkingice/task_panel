@@ -5,6 +5,8 @@
 - If the file does not exist, is invalid, or contains no process entries, PM
   displays an appropriate message and exits.
 - The configuration format is defined in `config.example.toml`.
+- `start_status_timeout_seconds` sets the post-start status retry timeout. It
+  defaults to five seconds and must be a positive whole number.
 
 ## UI
 
@@ -46,7 +48,7 @@
 - A process started by PM must continue running after PM exits. PM does not
   restart processes.
 - After a successful start request, PM checks the process status immediately
-  and retries every 500 milliseconds for up to five seconds. It marks the
+  and retries every 500 milliseconds for the configured timeout. It marks the
   process running as soon as a check succeeds; otherwise it reports a start
   timeout. Lookup errors are reported without retrying.
 - A process may be stopped by PM or may stop on its own.
