@@ -1,6 +1,7 @@
 package process
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -61,6 +62,9 @@ func (lookup Lookup) Check(process config.Process) (Status, error) {
 
 func (lookup Lookup) checkID(command string) (Status, error) {
 	output, err := lookup.Shell.Run(command)
+	if hasExitStatus(err, 1) {
+		return Status{}, nil
+	}
 	if err != nil {
 		return Status{}, fmt.Errorf("run id command: %w", err)
 	}
@@ -69,6 +73,15 @@ func (lookup Lookup) checkID(command string) (Status, error) {
 		return Status{}, err
 	}
 	return Status{Running: len(pids) > 0, PIDs: pids}, nil
+}
+
+type exitCoder interface {
+	ExitCode() int
+}
+
+func hasExitStatus(err error, status int) bool {
+	var exitCodeError exitCoder
+	return errors.As(err, &exitCodeError) && exitCodeError.ExitCode() == status
 }
 
 func (lookup Lookup) checkFind(command string) (Status, error) {

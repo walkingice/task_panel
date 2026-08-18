@@ -15,6 +15,14 @@ type fakeShell struct {
 	commands []string
 }
 
+type fakeExitError struct {
+	code int
+}
+
+func (err fakeExitError) Error() string { return "command failed" }
+
+func (err fakeExitError) ExitCode() int { return err.code }
+
 func (shell *fakeShell) Run(command string) (string, error) {
 	shell.commands = append(shell.commands, command)
 	return shell.output, shell.err
@@ -106,6 +114,7 @@ func TestLookupCheckIDPaths(t *testing.T) {
 		{"zero PID", "0", nil, Status{}, true},
 		{"negative PID", "-1", nil, Status{}, true},
 		{"out-of-range PID", "2147483648", nil, Status{}, true},
+		{"no matching process", "", fakeExitError{code: 1}, Status{}, false},
 		{"shell error", "", errors.New("failed"), Status{}, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
