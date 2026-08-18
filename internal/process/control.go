@@ -22,7 +22,7 @@ type Signaler interface {
 // SystemLauncher starts commands through the platform's default command shell.
 type SystemLauncher struct{}
 
-// Launch starts command and releases PM's reference to the child process.
+// Launch starts command and releases TP's reference to the child process.
 func (SystemLauncher) Launch(command string) error {
 	return launchCommand(systemCommandStarter{}, command)
 }

@@ -1,23 +1,22 @@
-# Example configuration for Process Manager.
+`#` Example configuration for Process Manager.
 # `name` is the name of the managed process.
 # `start` is the command that starts the process.
 # `id` is a command that prints one or more PIDs of the corresponding process.
 # `find` is a command that exits successfully only while the process is
 # running. Entries that use `find` must also set `stop`.
 # `pattern` is a regular expression matched against process command lines.
-# `stop` is the command that stops the process. If omitted, PM sends a kill
+# `stop` is the command that stops the process. If omitted, TP sends a kill
 # signal to each matched process.
 # Commands are executed by the system shell and must suit the target platform.
-# `show_start_confirmation` and `show_stop_confirmation` control whether PM
+# `show_start_confirmation` and `show_stop_confirmation` control whether TP
 # asks for confirmation before starting or stopping a process. Both default to
 # true when omitted.
-# `start_status_timeout_seconds` is how long PM retries status checks after a
+# `start_status_timeout_seconds` is how long TP retries status checks after a
 # successful start request. It defaults to 5 seconds when omitted and must be
 # a positive whole number of seconds.
 
 show_start_confirmation = true
 show_stop_confirmation = true
-start_status_timeout_seconds = 5
 
 # First process.
 [[process]]
@@ -42,7 +41,7 @@ id = "pgrep -f tmux"
 # Fourth process.
 # This is a Docker container. Use `find` to query the container state instead
 # of matching the `start` command, because Docker runs the container elsewhere.
-# PM retries this check for `start_status_timeout_seconds` after a start
+# TP retries this check for `start_status_timeout_seconds` after a start
 # request while Docker creates the container. Use a Docker health check here
 # instead when service readiness,
 # rather than container liveness, is required.

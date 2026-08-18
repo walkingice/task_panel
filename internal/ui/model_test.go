@@ -279,7 +279,7 @@ func TestModelUsesCompactViewForVeryNarrowTerminal(t *testing.T) {
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 12, Height: 24})
 	model = updated.(Model)
 
-	if got, want := model.View(), "PM: web\n"; got != want {
+	if got, want := model.View(), "TP: web\n"; got != want {
 		t.Errorf("View() = %q, want %q", got, want)
 	}
 }
@@ -290,7 +290,7 @@ func TestModelUsesCompactViewForShortTerminal(t *testing.T) {
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 15})
 	model = updated.(Model)
 
-	if got, want := model.View(), "PM: web\n"; got != want {
+	if got, want := model.View(), "TP: web\n"; got != want {
 		t.Errorf("View() = %q, want %q", got, want)
 	}
 }

@@ -1,12 +1,12 @@
-# Process Manager Agent Guide
+# Task Panel Agent Guide
 
 ## Project
 
-Process Manager, or PM for short.
+Task Panel, or TP for short.
 
-PM is a Go terminal UI that manages a subset of processes.
+TP is a Go terminal UI that manages a subset of processes.
 
-PM loads a configuration file that determines which processes are managed. The
+TP loads a configuration file that determines which processes are managed. The
 interface displays a list of processes and their running state. Users can
 quickly start or stop processes through the interface.
 

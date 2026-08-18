@@ -322,7 +322,7 @@ func (model Model) View() string {
 }
 
 func renderCompact(model Model, width int) string {
-	text := "PM"
+	text := "TP"
 	if model.confirmation != nil {
 		return truncate("[y/n] "+model.confirmation.action, width) + "\n"
 	}
